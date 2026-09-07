@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>マイ記録アプリ</title>
+    <!-- Google Identity Services (ログイン用) -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; margin: 0; padding: 0; color: #333; }
+        header { background-color: #4285f4; color: white; padding: 16px; text-align: center; font-weight: bold; font-size: 1.2rem; }
+        .container { padding: 16px; max-width: 600px; margin: 0 auto; }
+        
+        /* ログイン画面 */
+        #login-screen { text-align: center; margin-top: 50px; }
+        .btn { background-color: #4285f4; color: white; border: none; padding: 12px 24px; font-size: 16px; border-radius: 8px; cursor: pointer; width: 100%; margin-bottom: 10px;}
+        .btn:active { background-color: #3367d6; }
+        
+        /* タブ切替 */
+        .tabs { display: flex; margin-bottom: 16px; }
+        .tab-btn { flex: 1; padding: 12px; background: #ddd; border: none; font-size: 16px; cursor: pointer; }
+        .tab-btn.active { background: #fff; border-bottom: 3px solid #4285f4; font-weight: bold; }
+        
+        .tab-content { display: none; background: white; padding: 16px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .tab-content.active { display: block; }
+        
+        /* 入力フォーム */
+        label { display: block; margin-top: 12px; font-size: 14px; font-weight: bold; color: #555; }
+        input[type="text"], input[type="date"], textarea { width: 100%; padding: 10px; margin-top: 4px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 16px; }
+        textarea { height: 120px; resize: none; }
+        
+        /* 履歴リスト */
+        .record-item { padding: 12px; border-bottom: 1px solid #eee; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .record-item:last-child { border-bottom: none; }
+        
+        /* ローディング・メッセージ */
+        #status-msg { margin-top: 10px; font-size: 14px; color: #d93025; font-weight: bold; text-align: center; }
+        
+        /* ビューワー */
+        #viewer-area { margin-top: 20px; padding: 16px; border: 1px solid #ccc; border-radius: 8px; background: #fafafa; display: none; }
+    </style>
+</head>
+<body>
+
+    <header>マイ記録アプリ</header>
+
+    <div class="container">
+        <!-- ログイン画面 -->
+        <div id="login-screen">
+            <h3>Googleアカウントでログイン</h3>
+            <p>カレンダーとドライブを連携します</p>
+            <button class="btn" onclick="handleAuthClick()">ログインして開始</button>
+        </div>
+
+        <!-- アプリ本体画面 -->
+        <div id="main-app" style="display: none;">
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('create')">記録する</button>
+                <button class="tab-btn" onclick="switchTab('view')">履歴を見る</button>
+            </div>
+
+            <!-- タブ1: 記録作成 -->
+            <div id="tab-create" class="tab-content active">
+                <label>日付</label>
+                <input type="date" id="input-date">
+                
+                <label>タイトル</label>
+                <input type="text" id="input-title" placeholder="例: Hakuba旅行 1日目">
+                
+                <label>記録内容</label>
+                <textarea id="input-text" placeholder="今日の出来事を記録..."></textarea>
+                
+                <label>画像URL (Googleフォト等)</label>
+                <input type="text" id="input-img" placeholder="https://...">
+                
+                <div id="status-msg"></div>
+                <button class="btn" style="margin-top: 20px;" onclick="saveRecord()">保存 (Drive連携 & カレンダー登録)</button>
+            </div>
+
+            <!-- タブ2: 履歴閲覧 -->
+            <div id="tab-view" class="tab-content">
+                <button class="btn" onclick="loadRecords()">再読み込み</button>
+                <div id="record-list" style="margin-top: 16px;"></div>
+                
+                <div id="viewer-area">
+                    <button class="btn" style="background:#888;" onclick="closeViewer()">閉じる</button>
+                    <div id="viewer-content" style="margin-top: 16px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // お客様のクライアントID
+        const CLIENT_ID = '782455304746-gtiptf9v3vg3c4s3l6l9q66k8m8n4gt5.apps.googleusercontent.com';
+        // 必要な権限（Googleドライブへのファイル作成・読込権限、カレンダー予定追加権限）
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/calendar.events';
+        
+        let tokenClient;
+        let accessToken = null;
+
+        // 本日の日付をデフォルトセット
+        document.getElementById('input-date').valueAsDate = new Date();
+
+        // 1. Google 認証の初期化
+        window.onload = function () {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: SCOPES,
+                callback: (tokenResponse) => {
+                    if (tokenResponse && tokenResponse.access_token) {
+                        accessToken = tokenResponse.access_token;
+                        document.getElementById('login-screen').style.display = 'none';
+                        document.getElementById('main-app').style.display = 'block';
+                        loadRecords(); // ログイン成功時に履歴をロード
+                    }
+                },
+            });
+        };
+
+        function handleAuthClick() {
+            tokenClient.requestAccessToken();
+        }
+
+        // タブ切り替え処理
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            if(tab === 'create') {
+                document.querySelectorAll('.tab-btn')[0].classList.add('active');
+                document.getElementById('tab-create').classList.add('active');
+            } else {
+                document.querySelectorAll('.tab-btn')[1].classList.add('active');
+                document.getElementById('tab-view').classList.add('active');
+            }
+        }
+
+        // 2. 記録を保存する処理（DriveへHTML保存 ＆ カレンダー登録）
+        async function saveRecord() {
+            const date = document.getElementById('input-date').value;
+            const title = document.getElementById('input-title').value;
+            const text = document.getElementById('input-text').value;
+            const imgUrl = document.getElementById('input-img').value;
+
+            if(!title || !date) {
+                alert("日付とタイトルは必須です！");
+                return;
+            }
+
+            const status = document.getElementById('status-msg');
+            status.innerText = "Google DriveにHTMLを保存中...";
+
+            // 保存するHTMLの中身を生成（ご希望のリンク形式サムネイル仕様）
+            let htmlContent = `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${title}</title></head>
+<body style="font-family:sans-serif; padding:16px;">
+    <h2>${title}</h2>
+    <p style="color:#666;">日付: ${date}</p>
+    <p>${text.replace(/\n/g, '<br>')}</p>
+`;
+            if (imgUrl) {
+                htmlContent += `
+    <hr>
+    <p>添付画像（タップでオリジナルサイズを開く）:</p>
+    <a href="${imgUrl}" target="_blank">
+        <img src="${imgUrl}" alt="サムネイル" style="max-width:100%; max-height:300px; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.2);">
+    </a>`;
+            }
+            htmlContent += `\n</body>\n</html>`;
+
+            // Drive API用にデータを構築 (マルチパート形式)
+            const metadata = { name: `${title}_${date}.html`, mimeType: 'text/html' };
+            const boundary = '-------314159265358979323846';
+            const delimiter = "\r\n--" + boundary + "\r\n";
+            const close_delim = "\r\n--" + boundary + "--";
+            
+            const multipartRequestBody =
+                delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) +
+                delimiter + 'Content-Type: text/html\r\n\r\n' + htmlContent + close_delim;
+
+            try {
+                // ドライブにアップロード
+                const driveRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
+                    body: multipartRequestBody
+                });
+                const driveData = await driveRes.json();
+                
+                status.innerText = "Googleカレンダーに予定を追加中...";
+
+                // カレンダーに予定を追加
+                const event = {
+                    summary: `[記録] ${title}`,
+                    description: `アプリから記録されました。\n\n▼詳細（HTML）へのリンク\n${driveData.webViewLink}`,
+                    start: { date: date }, // 終日予定
+                    end: { date: date }
+                };
+
+                await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(event)
+                });
+
+                status.innerText = "保存が完了しました！";
+                status.style.color = "green";
+                
+                // フォームのクリア
+                document.getElementById('input-title').value = '';
+                document.getElementById('input-text').value = '';
+                document.getElementById('input-img').value = '';
+                
+                setTimeout(() => { status.innerText = ""; status.style.color = "#d93025"; }, 3000);
+                loadRecords(); // 履歴を更新
+
+            } catch (error) {
+                console.error(error);
+                status.innerText = "エラーが発生しました。";
+            }
+        }
+
+        // 3. Driveから履歴リストを取得
+        async function loadRecords() {
+            if(!accessToken) return;
+            try {
+                // このアプリで作成したHTMLファイルのみを検索
+                const res = await fetch("https://www.googleapis.com/drive/v3/files?q=mimeType='text/html'&orderBy=createdTime desc", {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                });
+                const data = await res.json();
+                
+                const listDiv = document.getElementById('record-list');
+                listDiv.innerHTML = '';
+                
+                if(!data.files || data.files.length === 0) {
+                    listDiv.innerHTML = '<p style="color:#666;">記録がまだありません。</p>';
+                    return;
+                }
+
+                data.files.forEach(file => {
+                    const item = document.createElement('div');
+                    item.className = 'record-item';
+                    item.innerHTML = `<strong>${file.name}</strong> <span style="font-size:12px;color:blue;">[開く]</span>`;
+                    item.onclick = () => viewRecord(file.id);
+                    listDiv.appendChild(item);
+                });
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        // 4. アプリ内でHTMLファイルを読み込んで表示
+        async function viewRecord(fileId) {
+            document.getElementById('viewer-content').innerHTML = "読み込み中...";
+            document.getElementById('viewer-area').style.display = 'block';
+            
+            try {
+                const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                });
+                const htmlText = await res.text();
+                
+                // セキュリティ上、iframeで表示（今回はShadow DOMを使用）
+                const viewer = document.getElementById('viewer-content');
+                viewer.innerHTML = ''; // クリア
+                const shadow = viewer.attachShadow({mode: 'closed'}) || viewer; 
+                viewer.innerHTML = htmlText;
+
+            } catch (error) {
+                document.getElementById('viewer-content').innerHTML = "読み込みに失敗しました。";
+            }
+        }
+
+        function closeViewer() {
+            document.getElementById('viewer-area').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
