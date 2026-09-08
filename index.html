@@ -7,10 +7,10 @@
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <!-- Google Maps API (Places ライブラリ読込) -->
     <script>
-        // Google Maps専用のAPIキーを設定
-        const MAP_API_KEY = 'AIzaSyBlghG_cpGSrAVBJl4l81V-6DLbg_BsOy0';
+        const MAP_API_KEY = 'AIzaSyBlghG_cpGSrAVBJl4l81V-6DLbg_BsOy0'; // ←ご自身のAPIキーに書き換えてください
         document.write('<script src="https://maps.googleapis.com/maps/api/js?key=' + MAP_API_KEY + '&libraries=places&language=ja" async defer><\/script>');
     </script>
+    
     <style>
         body { font-family: -apple-system, sans-serif; background-color: #f0f2f5; margin: 0; padding: 0; color: #333; }
         header { background-color: #4285f4; color: white; padding: 16px; text-align: center; font-weight: bold; font-size: 1.2rem; }
@@ -27,7 +27,7 @@
         .tab-content.active { display: block; }
         
         label { display: block; margin-top: 12px; font-size: 14px; font-weight: bold; color: #555; }
-        input[type="text"], input[type="date"], input[type="datetime-local"], select, textarea { width: 100%; padding: 10px; margin-top: 4px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 16px; }
+        input[type="text"], input[type="date"], input[type="datetime-local"], textarea { width: 100%; padding: 10px; margin-top: 4px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 16px; }
         textarea { height: 120px; resize: none; }
         
         .record-item { padding: 12px; border-bottom: 1px solid #eee; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
@@ -35,6 +35,31 @@
         #viewer-area { margin-top: 20px; padding: 16px; border: 1px solid #ccc; border-radius: 8px; background: #fafafa; display: none; }
         
         .datetime-group { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+
+        /* カラーパレットのスタイル */
+        .color-palette { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+        .color-chip {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+            transition: transform 0.1s, border-color 0.1s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            color: #666;
+            background-color: #e0e0e0;
+        }
+        .color-chip:hover { transform: scale(1.1); }
+        .color-chip.selected {
+            border-color: #202124;
+            transform: scale(1.15);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -42,6 +67,7 @@
     <div class="container">
         <div id="login-screen">
             <h3>Googleアカウントでログイン</h3>
+            <p style="font-size: 14px; color: #666; margin-bottom: 20px;">ボタンを押してアプリを開始してください</p>
             <button class="btn" onclick="handleAuthClick()">ログインして開始</button>
         </div>
 
@@ -71,22 +97,22 @@
                 <input type="text" id="input-location" placeholder="場所名や施設名を入力すると候補が出ます">
 
                 <label>カレンダーの色</label>
-                <select id="input-color">
-                    <option value="">デフォルト (カレンダーの色)</option>
-                    <option value="1">ラベンダー</option>
-                    <option value="2">セージ</option>
-                    <option value="3">ブドウ</option>
-                    <option value="4">フラミンゴ</option>
-                    <option value="5">バナナ</option>
-                    <option value="6">ミカン</option>
-                    <option value="7">ピーコック</option>
-                    <option value="8">グラファイト</option>
-                    <option value="9">ブルーベリー</option>
-                    <option value="10">バジル</option>
-                    <option value="11">トマト</option>
-                </select>
+                <div class="color-palette" id="color-palette">
+                    <div class="color-chip selected" data-value="" title="デフォルト" style="background: #f1f3f4; color: #5f6368;">標準</div>
+                    <div class="color-chip" data-value="1" title="ラベンダー" style="background: #7986CB;"></div>
+                    <div class="color-chip" data-value="2" title="セージ" style="background: #33B679;"></div>
+                    <div class="color-chip" data-value="3" title="ブドウ" style="background: #8E24AA;"></div>
+                    <div class="color-chip" data-value="4" title="フラミンゴ" style="background: #E67C73;"></div>
+                    <div class="color-chip" data-value="5" title="バナナ" style="background: #F6BF26;"></div>
+                    <div class="color-chip" data-value="6" title="ミカン" style="background: #F4511E;"></div>
+                    <div class="color-chip" data-value="7" title="ピーコック" style="background: #039BE5;"></div>
+                    <div class="color-chip" data-value="8" title="グラファイト" style="background: #616161;"></div>
+                    <div class="color-chip" data-value="9" title="ブルーベリー" style="background: #3F51B5;"></div>
+                    <div class="color-chip" data-value="10" title="バジル" style="background: #0B8043;"></div>
+                    <div class="color-chip" data-value="11" title="トマト" style="background: #D50000;"></div>
+                </div>
 
-                <label>記録内容</label>
+                <label style="margin-top: 16px;">記録内容</label>
                 <textarea id="input-text" placeholder="今日の出来事を記録..."></textarea>
                 
                 <label>写真 (複数選択可)</label>
@@ -112,20 +138,19 @@
     <script>
         // ★★★ 事前設定 ★★★
         const CLIENT_ID = '782455304746-gtiptf9v3vg3c4s3l6l9q66k8m8n4gt5.apps.googleusercontent.com';
-        
-        // ↓ここを必ずご自身のGASのURLに書き換えてください
         const VIEWER_API_URL = "https://script.google.com/macros/s/AKfycbzlTKnLv5NNlRQFC4DvmoimhflCJMLltOuDBxNwSbRvW3apZ8KnlF2fg2k25FXsKPXP/exec";
-        
         const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/calendar.events';
         
         let tokenClient;
         let accessToken = null;
         let selectedPhotosData = []; 
         let autocomplete = null;
+        let selectedColorId = ""; // 選択されたカレンダーの色ID
 
         window.onload = function () {
             initDateFields();
-            initAutocomplete(); // Googleマップのサジェスト機能を初期化
+            initAutocomplete();
+            initColorPalette();
             
             tokenClient = google.accounts.oauth2.initTokenClient({
                 client_id: CLIENT_ID,
@@ -139,22 +164,40 @@
                     }
                 },
             });
+
+            try {
+                tokenClient.requestAccessToken({ prompt: '' });
+            } catch (e) {
+                console.log("自動ログインスキップ", e);
+            }
         };
 
-        // Google Places Autocompleteのセットアップ
+        // カラーパレットのクリック選択処理
+        function initColorPalette() {
+            const chips = document.querySelectorAll('.color-chip');
+            chips.forEach(chip => {
+                chip.onclick = () => {
+                    chips.forEach(c => c.classList.remove('selected'));
+                    chip.classList.add('selected');
+                    selectedColorId = chip.getAttribute('data-value');
+                };
+            });
+        }
+
         function initAutocomplete() {
             const input = document.getElementById('input-location');
             if (window.google && window.google.maps && window.google.maps.places) {
                 autocomplete = new google.maps.places.Autocomplete(input, {
-                    types: ['geocode', 'establishment'] // 住所や施設名を広く検索対象にする
+                    types: ['geocode', 'establishment']
                 });
             } else {
-                // 万が一マップの読み込みが遅れている場合は少し待ってから再試行
                 setTimeout(initAutocomplete, 500);
             }
         }
 
-        function handleAuthClick() { tokenClient.requestAccessToken(); }
+        function handleAuthClick() { 
+            tokenClient.requestAccessToken({ prompt: 'consent' }); 
+        }
 
         function initDateFields() {
             const now = new Date();
@@ -219,7 +262,7 @@
                         if (width > height) {
                             if (width > maxWidth) { height = Math.round((height * maxWidth) / width); width = maxWidth; }
                         } else {
-                            if (height > maxHeight) { width = Math.round((width * maxHeight) / height); height = maxHeight; }
+                            if (height > maxHeight) { width = Math.round((height * maxHeight) / height); height = maxHeight; }
                         }
                         const canvas = document.createElement('canvas');
                         canvas.width = width;
@@ -283,7 +326,7 @@
                 const metadata = { name: folderName, mimeType: 'application/vnd.google-apps.folder' };
                 if (parentId) metadata.parents = [parentId];
 
-                const createRes = await fetch('https://www.googleapis.com/drive/v3/files?fields=id', {
+                const createRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?fields=id', {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify(metadata)
@@ -337,7 +380,6 @@
             }
 
             const locationStr = document.getElementById('input-location').value;
-            const colorId = document.getElementById('input-color').value;
             const status = document.getElementById('status-msg');
             
             try {
@@ -405,7 +447,7 @@
                     end: endObj
                 };
                 if (locationStr) event.location = locationStr;
-                if (colorId) event.colorId = colorId;
+                if (selectedColorId) event.colorId = selectedColorId; // 選択されたカラーIDをセット
 
                 await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
                     method: 'POST',
@@ -416,13 +458,18 @@
                 status.innerText = "保存が完了しました！";
                 status.style.color = "green";
                 
+                // フォームをリセット
                 document.getElementById('input-title').value = '';
                 document.getElementById('input-text').value = '';
                 document.getElementById('input-location').value = '';
-                document.getElementById('input-color').value = '';
                 selectedPhotosData = [];
                 renderPreview();
                 initDateFields();
+                
+                // 選択色を初期（標準）に戻す
+                document.querySelectorAll('.color-chip').forEach(c => c.classList.remove('selected'));
+                document.querySelector('.color-chip[data-value=""]').classList.add('selected');
+                selectedColorId = "";
                 
                 setTimeout(() => { status.innerText = ""; status.style.color = "#333"; }, 3000);
                 loadRecords();
@@ -444,7 +491,7 @@
                 const listDiv = document.getElementById('record-list');
                 listDiv.innerHTML = '';
                 
-                if(!data.files || data.files.length === 0) {
+                ,if(!data.files || data.files.length === 0) {
                     listDiv.innerHTML = '<p style="color:#666;">記録がまだありません。</p>';
                     return;
                 }
@@ -485,7 +532,6 @@
             }
         }
 
-        /* 閉じるボタン */
         function closeViewer() { document.getElementById('viewer-area').style.display = 'none'; }
     </script>
 </body>
