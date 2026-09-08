@@ -28,12 +28,6 @@
         .record-item { padding: 12px; border-bottom: 1px solid #eee; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
         #status-msg { margin-top: 10px; font-size: 14px; font-weight: bold; text-align: center; }
         #viewer-area { margin-top: 20px; padding: 16px; border: 1px solid #ccc; border-radius: 8px; background: #fafafa; display: none; }
-
-        /* 写真選択モーダル用 */
-        #photo-modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; padding:20px; box-sizing:border-box; overflow-y:auto; }
-        .modal-content { background:#fff; padding:16px; border-radius:8px; max-width:600px; margin:0 auto; }
-        .photo-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-bottom:16px; }
-        .photo-grid img { width:100%; aspect-ratio:1/1; object-fit:cover; cursor:pointer; box-sizing:border-box; border-radius:4px; }
     </style>
 </head>
 <body>
@@ -58,8 +52,9 @@
                 <label>記録内容</label>
                 <textarea id="input-text" placeholder="今日の出来事を記録..."></textarea>
                 
-                <label>写真 (Googleフォトから選択)</label>
-                <button class="btn" style="background:#34a853; margin-top:4px;" onclick="openPhotoPicker()">写真を選ぶ (複数可)</button>
+                <label>写真 (スマホから選択)</label>
+                <input type="file" id="photo-upload" multiple accept="image/*" style="display: none;" onchange="processPhotos(event)">
+                <button class="btn" style="background:#34a853; margin-top:4px;" onclick="document.getElementById('photo-upload').click()">写真を選ぶ (複数可)</button>
                 <div id="selected-photos-preview" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;"></div>
                 
                 <div id="status-msg"></div>
@@ -77,30 +72,19 @@
         </div>
     </div>
 
-    <!-- 写真選択用モーダル画面 -->
-    <div id="photo-modal">
-        <div class="modal-content">
-            <h3 style="margin-top:0;">写真を選ぶ</h3>
-            <div id="photo-grid" class="photo-grid"></div>
-            <button class="btn" onclick="confirmPhotos()">決定</button>
-            <button class="btn" style="background:#888; margin-top:8px;" onclick="closePhotoPicker()">キャンセル</button>
-        </div>
-    </div>
-
     <script>
         // ★★★ 事前設定 ★★★
         const CLIENT_ID = '782455304746-gtiptf9v3vg3c4s3l6l9q66k8m8n4gt5.apps.googleusercontent.com';
         
-        // ↓ここを必ずご自身のGASのURL（HTMLビューアAPI）に書き換えてください
+        // ↓ここを必ずご自身のGASのURLに書き換えてください
         const VIEWER_API_URL = "https://script.google.com/macros/s/AKfycbzlTKnLv5NNlRQFC4DvmoimhflCJMLltOuDBxNwSbRvW3apZ8KnlF2fg2k25FXsKPXP/exec";
         
-        // アクセス権限（スコープ）にPhotos Libraryを追加
-        const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/photoslibrary.readonly';
+        // アクセス権限 (DriveとカレンダーのみでOK)
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/calendar.events';
         
         let tokenClient;
         let accessToken = null;
-        let selectedPhotos = []; 
-        let tempSelected = [];
+        let selectedPhotosData = []; 
 
         document.getElementById('input-date').valueAsDate = new Date();
 
@@ -133,114 +117,177 @@
             }
         }
 
-        // --- Googleフォト ピッカー機能 ---
-        async function openPhotoPicker() {
-            if(!accessToken) return;
-            document.getElementById('photo-modal').style.display = 'block';
-            const grid = document.getElementById('photo-grid');
-            grid.innerHTML = '<p>写真を読み込み中...</p>';
-            tempSelected = [...selectedPhotos]; 
+        async function processPhotos(event) {
+            const files = event.target.files;
+            if (!files || files.length === 0) return;
             
-            try {
-                // 最新50件を取得
-                const res = await fetch('https://photoslibrary.googleapis.com/v1/mediaItems?pageSize=50', {
-                    headers: { 'Authorization': `Bearer ${accessToken}` }
-                });
-                const data = await res.json();
-                grid.innerHTML = '';
-                
-                if (data.mediaItems && data.mediaItems.length > 0) {
-                    data.mediaItems.forEach(item => {
-                        const img = document.createElement('img');
-                        // サムネイル表示用にサイズを指定 (=w200-h200-c)
-                        img.src = item.baseUrl + '=w200-h200-c';
-                        img.style.border = tempSelected.includes(item.baseUrl) ? '4px solid #4285f4' : '4px solid transparent';
-                        
-                        // 画像クリックで選択状態を切り替え
-                        img.onclick = () => {
-                            if (tempSelected.includes(item.baseUrl)) {
-                                tempSelected = tempSelected.filter(url => url !== item.baseUrl);
-                                img.style.border = '4px solid transparent';
-                            } else {
-                                tempSelected.push(item.baseUrl);
-                                img.style.border = '4px solid #4285f4';
-                            }
-                        };
-                        grid.appendChild(img);
-                    });
-                } else {
-                    grid.innerHTML = '<p>写真が見つかりません。</p>';
+            document.getElementById('status-msg').innerText = "写真を読み込み中...";
+            document.getElementById('status-msg').style.color = "#333";
+            
+            for (let file of files) {
+                try {
+                    // ドライブにアップロードしやすいように長辺1200pxにリサイズ
+                    const base64Data = await resizeImage(file, 1200, 1200);
+                    selectedPhotosData.push(base64Data);
+                } catch(e) {
+                    console.error("写真の読み込み失敗", e);
                 }
-            } catch (e) {
-                console.error(e);
-                grid.innerHTML = '<p>エラーが発生しました。</p>';
             }
-        }
-
-        function confirmPhotos() {
-            selectedPhotos = [...tempSelected];
-            closePhotoPicker();
+            
+            document.getElementById('status-msg').innerText = "";
             renderPreview();
+            event.target.value = ""; 
         }
 
-        function closePhotoPicker() { document.getElementById('photo-modal').style.display = 'none'; }
+        function resizeImage(file, maxWidth, maxHeight) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        let width = img.width;
+                        let height = img.height;
+                        if (width > height) {
+                            if (width > maxWidth) {
+                                height = Math.round((height * maxWidth) / width);
+                                width = maxWidth;
+                            }
+                        } else {
+                            if (height > maxHeight) {
+                                width = Math.round((width * maxHeight) / height);
+                                height = maxHeight;
+                            }
+                        }
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        resolve(canvas.toDataURL('image/jpeg', 0.85)); 
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
 
-        // 選択された画像をメイン画面にプレビュー表示
         function renderPreview() {
             const preview = document.getElementById('selected-photos-preview');
             preview.innerHTML = '';
-            selectedPhotos.forEach(url => {
+            selectedPhotosData.forEach((dataUrl, index) => {
+                const container = document.createElement('div');
+                container.style.position = 'relative';
+                
                 const img = document.createElement('img');
-                img.src = url + '=w100-h100-c';
+                img.src = dataUrl;
                 img.style.width = '60px';
                 img.style.height = '60px';
                 img.style.objectFit = 'cover';
                 img.style.borderRadius = '4px';
-                preview.appendChild(img);
+                
+                const delBtn = document.createElement('button');
+                delBtn.innerText = '×';
+                delBtn.style.position = 'absolute';
+                delBtn.style.top = '-5px';
+                delBtn.style.right = '-5px';
+                delBtn.style.background = 'red';
+                delBtn.style.color = 'white';
+                delBtn.style.border = 'none';
+                delBtn.style.borderRadius = '50%';
+                delBtn.style.cursor = 'pointer';
+                delBtn.onclick = () => {
+                    selectedPhotosData.splice(index, 1);
+                    renderPreview();
+                };
+                
+                container.appendChild(img);
+                container.appendChild(delBtn);
+                preview.appendChild(container);
             });
         }
 
-        // --- 保存処理 ---
+        // --- ドライブへの画像単体アップロード機能 ---
+        async function uploadImageToDrive(base64Data, filename) {
+            const metadata = { name: filename, mimeType: 'image/jpeg' };
+            const boundary = '-------314159265358979323846';
+            const delimiter = "\r\n--" + boundary + "\r\n";
+            const close_delim = "\r\n--" + boundary + "--";
+
+            // base64のヘッダー部分(data:image/jpeg;base64,)を取り除く
+            const base64 = base64Data.split(',')[1];
+
+            const multipartRequestBody =
+                delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) +
+                delimiter + 'Content-Type: image/jpeg\r\nContent-Transfer-Encoding: base64\r\n\r\n' + base64 + close_delim;
+
+            const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': `multipart/related; boundary=${boundary}`
+                },
+                body: multipartRequestBody
+            });
+            const data = await res.json();
+            return data.id; // ドライブ上のファイルIDを返す
+        }
+
+        // --- 保存処理（画像を先に保存 → そのURLをHTMLに埋め込む） ---
         async function saveRecord() {
             const date = document.getElementById('input-date').value;
             const title = document.getElementById('input-title').value;
             const text = document.getElementById('input-text').value;
 
             if(!title || !date) { alert("日付とタイトルは必須です！"); return; }
-            if(VIEWER_API_URL.includes('【')) { alert("プログラムの66行目にあるVIEWER_API_URLの設定を忘れています！"); return; }
+            if(VIEWER_API_URL.includes('【')) { alert("プログラムの72行目にあるVIEWER_API_URLの設定を忘れています！"); return; }
 
             const status = document.getElementById('status-msg');
-            status.innerText = "Google Driveに保存中...";
+            
+            try {
+                // 1. まず画像を1枚ずつGoogleドライブにアップロードしてIDを取得
+                const uploadedImgIds = [];
+                if (selectedPhotosData.length > 0) {
+                    status.innerText = `写真をGoogle Driveにアップロード中... (全${selectedPhotosData.length}枚)`;
+                    for (let i = 0; i < selectedPhotosData.length; i++) {
+                        const imgId = await uploadImageToDrive(selectedPhotosData[i], `${date}_${title}_写真${i+1}.jpg`);
+                        uploadedImgIds.push(imgId);
+                    }
+                }
 
-            let htmlContent = `<!DOCTYPE html>
+                // 2. 取得した画像のIDを使って、HTMLを作成
+                status.innerText = "記録データ(HTML)を作成中...";
+                let htmlContent = `<!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${title}</title></head>
-<body style="font-family:sans-serif; padding:16px;">
+<body style="font-family:sans-serif; padding:16px; max-width:800px; margin:0 auto;">
     <h2>${title}</h2>
     <p style="color:#666;">日付: ${date}</p>
-    <p>${text.replace(/\n/g, '<br>')}</p>
+    <p style="line-height:1.6;">${text.replace(/\n/g, '<br>')}</p>
 `;
-            // 選んだ画像がある場合、HTMLにリンクとして追加
-            if (selectedPhotos.length > 0) {
-                htmlContent += `\n    <hr>\n    <p>添付画像（タップで高画質サイズを開く）:</p>\n    <div style="display:flex; flex-wrap:wrap; gap:10px;">`;
-                selectedPhotos.forEach(url => {
-                    // =w2048 で通常（高画質）サイズ、 =w300 でサムネイルサイズを指定
-                    htmlContent += `\n        <a href="${url}=w2048" target="_blank">\n            <img src="${url}=w300" alt="写真" style="max-height:200px; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.2);">\n        </a>`;
-                });
-                htmlContent += `\n    </div>`;
-            }
-            htmlContent += `\n</body>\n</html>`;
+                // ドライブのサムネイル表示URLを利用する
+                if (uploadedImgIds.length > 0) {
+                    htmlContent += `\n    <hr>\n    <p>添付画像 (タップでDriveのビューアが開きます):</p>\n    <div style="display:flex; flex-wrap:wrap; gap:10px;">`;
+                    uploadedImgIds.forEach(id => {
+                        htmlContent += `
+        <a href="https://drive.google.com/file/d/${id}/view" target="_blank">
+            <img src="https://drive.google.com/thumbnail?id=${id}&sz=w800" alt="写真" style="max-height:200px; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.2);">
+        </a>`;
+                    });
+                    htmlContent += `\n    </div>`;
+                }
+                htmlContent += `\n</body>\n</html>`;
 
-            const metadata = { name: `${title}_${date}.html`, mimeType: 'text/html' };
-            const boundary = '-------314159265358979323846';
-            const delimiter = "\r\n--" + boundary + "\r\n";
-            const close_delim = "\r\n--" + boundary + "--";
-            
-            const multipartRequestBody =
-                delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) +
-                delimiter + 'Content-Type: text/html\r\n\r\n' + htmlContent + close_delim;
+                // 3. 完成したHTMLをGoogleドライブに保存
+                status.innerText = "記録データ(HTML)をGoogle Driveに保存中...";
+                const metadata = { name: `${title}_${date}.html`, mimeType: 'text/html' };
+                const boundary = '-------314159265358979323846';
+                const delimiter = "\r\n--" + boundary + "\r\n";
+                const close_delim = "\r\n--" + boundary + "--";
+                
+                const multipartRequestBody =
+                    delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) +
+                    delimiter + 'Content-Type: text/html\r\n\r\n' + htmlContent + close_delim;
 
-            try {
                 const driveRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
@@ -248,6 +295,7 @@
                 });
                 const driveData = await driveRes.json();
                 
+                // 4. カレンダーに予定を追加
                 status.innerText = "カレンダーに予定を追加中...";
                 const event = {
                     summary: `[記録] ${title}`,
@@ -266,15 +314,16 @@
                 
                 document.getElementById('input-title').value = '';
                 document.getElementById('input-text').value = '';
-                selectedPhotos = [];
+                selectedPhotosData = [];
                 renderPreview();
                 
-                setTimeout(() => { status.innerText = ""; status.style.color = "#d93025"; }, 3000);
+                setTimeout(() => { status.innerText = ""; status.style.color = "#333"; }, 3000);
                 loadRecords();
 
             } catch (error) {
                 console.error(error);
                 status.innerText = "エラーが発生しました。";
+                status.style.color = "red";
             }
         }
 
