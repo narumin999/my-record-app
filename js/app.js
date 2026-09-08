@@ -4,7 +4,6 @@ let selectedColorId = "";
 let editingRecordId = null; 
 
 window.onload = function () {
-    // Google Maps APIを安全に動的読み込み
     const mapScript = document.createElement('script');
     mapScript.src = `https://maps.googleapis.com/maps/api/js?key=${CONFIG.MAP_API_KEY}&libraries=places&language=ja`;
     mapScript.async = true;
@@ -17,7 +16,6 @@ window.onload = function () {
     initDateFields();
     initColorPalette();
 
-    // 認証の初期化
     initAuth(() => {
         loadRecordsList();
     });
@@ -149,6 +147,55 @@ function renderPreview() {
     });
 }
 
+// --- 強力なHTMLタグ除去関数（正規表現で完全にクリーンなテキストにする） ---
+function stripHtmlTags(html) {
+    if (!html) return '';
+    return html.replace(/<[^>]*>/g, '').trim();
+}
+
+// --- HTML入力支援ツールバーの処理 ---
+function formatText(type) {
+    const textarea = document.getElementById('input-text');
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = textarea.value.substring(start, end);
+    let replacement = '';
+
+    switch(type) {
+        case 'b':
+            replacement = `<b>${selectedText}</b>`;
+            break;
+        case 'i':
+            replacement = `<i>${selectedText}</i>`;
+            break;
+        case 'u':
+            replacement = `<u>${selectedText}</u>`;
+            break;
+        case 's':
+            replacement = `<s>${selectedText}</s>`;
+            break;
+        case 'ul':
+            replacement = `<ul>\n  <li>${selectedText || 'リスト項目'}</li>\n</ul>`;
+            break;
+        case 'ol':
+            replacement = `<ol>\n  <li>${selectedText || 'リスト項目'}</li>\n</ol>`;
+            break;
+        case 'a':
+            const url = prompt("リンク先のURLを入力してください:", "https://");
+            if (!url) return;
+            const linkText = selectedText || prompt("リンクの表示テキストを入力してください:", "リンク");
+            replacement = `<a href="${url}" target="_blank">${linkText}</a>`;
+            break;
+        case 'clear':
+            replacement = stripHtmlTags(selectedText);
+            break;
+    }
+
+    textarea.value = textarea.value.substring(0, start) + replacement + textarea.value.substring(end);
+    textarea.focus();
+    textarea.setSelectionRange(start + replacement.length, start + replacement.length);
+}
+
 async function saveRecord() {
     const title = document.getElementById('input-title').value;
     const text = document.getElementById('input-text').value;
@@ -205,8 +252,11 @@ async function saveRecord() {
             title, displayDate, locationStr, text, uploadedImgIds
         );
 
-        const snippet = text.length > 100 ? text.substring(0, 100) + "..." : text;
+        // カレンダー用：HTMLタグを完全に排除した純粋なテキストから100文字スニペットを作成
+        const plainText = stripHtmlTags(text);
+        const snippet = plainText.length > 100 ? plainText.substring(0, 100) + "..." : plainText;
         const descriptionStr = `${snippet}\n\n▼全文・画像はこちら\n${CONFIG.VIEWER_API_URL}?id=${htmlFileId}`;
+        
         const eventData = { summary: `[記録] ${title}`, description: descriptionStr, start: startObj, end: endObj };
         if (locationStr) eventData.location = locationStr;
         if (selectedColorId) eventData.colorId = selectedColorId;
@@ -369,51 +419,4 @@ function resetForm() {
 
     document.getElementById('save-btn-text').innerText = "保存 (Drive連携 & カレンダー登録)";
     document.getElementById('delete-btn').style.display = 'none';
-}
-
-// --- HTML入力支援ツールバーの処理 ---
-function formatText(type) {
-    const textarea = document.getElementById('input-text');
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selectedText = textarea.value.substring(start, end);
-    let replacement = '';
-
-    switch(type) {
-        case 'b':
-            replacement = `<b>${selectedText}</b>`;
-            break;
-        case 'i':
-            replacement = `<i>${selectedText}</i>`;
-            break;
-        case 'u':
-            replacement = `<u>${selectedText}</u>`;
-            break;
-        case 's':
-            replacement = `<s>${selectedText}</s>`;
-            break;
-        case 'ul':
-            replacement = `<ul>\n  <li>${selectedText || 'リスト項目'}</li>\n</ul>`;
-            break;
-        case 'ol':
-            replacement = `<ol>\n  <li>${selectedText || 'リスト項目'}</li>\n</ol>`;
-            break;
-        case 'a':
-            const url = prompt("リンク先のURLを入力してください:", "https://");
-            if (!url) return;
-            const linkText = selectedText || prompt("リンクの表示テキストを入力してください:", "リンク");
-            replacement = `<a href="${url}" target="_blank">${linkText}</a>`;
-            break;
-        case 'clear':
-            // 選択部分のHTMLタグを簡易的に除去する
-            replacement = selectedText.replace(/<\/?[^>]+(>|$)/g, "");
-            break;
-    }
-
-    // テキストエリアの選択範囲をHTMLタグ付きに置換
-    textarea.value = textarea.value.substring(0, start) + replacement + textarea.value.substring(end);
-    textarea.focus();
-    
-    // カーソル位置（または選択状態）の調整
-    textarea.setSelectionRange(start + replacement.length, start + replacement.length);
 }
