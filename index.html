@@ -145,7 +145,7 @@
         let accessToken = null;
         let selectedPhotosData = []; 
         let autocomplete = null;
-        let selectedColorId = ""; // 選択されたカレンダーの色ID
+        let selectedColorId = "";
 
         window.onload = function () {
             initDateFields();
@@ -172,7 +172,6 @@
             }
         };
 
-        // カラーパレットのクリック選択処理
         function initColorPalette() {
             const chips = document.querySelectorAll('.color-chip');
             chips.forEach(chip => {
@@ -447,7 +446,7 @@
                     end: endObj
                 };
                 if (locationStr) event.location = locationStr;
-                if (selectedColorId) event.colorId = selectedColorId; // 選択されたカラーIDをセット
+                if (selectedColorId) event.colorId = selectedColorId;
 
                 await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
                     method: 'POST',
@@ -458,7 +457,6 @@
                 status.innerText = "保存が完了しました！";
                 status.style.color = "green";
                 
-                // フォームをリセット
                 document.getElementById('input-title').value = '';
                 document.getElementById('input-text').value = '';
                 document.getElementById('input-location').value = '';
@@ -466,7 +464,6 @@
                 renderPreview();
                 initDateFields();
                 
-                // 選択色を初期（標準）に戻す
                 document.querySelectorAll('.color-chip').forEach(c => c.classList.remove('selected'));
                 document.querySelector('.color-chip[data-value=""]').classList.add('selected');
                 selectedColorId = "";
@@ -491,7 +488,7 @@
                 const listDiv = document.getElementById('record-list');
                 listDiv.innerHTML = '';
                 
-                ,if(!data.files || data.files.length === 0) {
+                if (!data.files || data.files.length === 0) {
                     listDiv.innerHTML = '<p style="color:#666;">記録がまだありません。</p>';
                     return;
                 }
