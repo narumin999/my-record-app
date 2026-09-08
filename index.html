@@ -7,9 +7,9 @@
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <!-- Google Maps API (Places ライブラリ読込) -->
     <script>
-    // Google Maps APIを動的に正しいクライアントIDで読み込む
-    const CLIENT_ID_MAP = '782455304746-gtiptf9v3vg3c4s3l6l9q66k8m8n4gt5.apps.googleusercontent.com';
-    document.write('<script src="https://maps.googleapis.com/maps/api/js?key=' + CLIENT_ID_MAP + '&libraries=places&language=ja" async defer><\/script>');
+        // Google Maps専用のAPIキーを設定
+        const MAP_API_KEY = 'AIzaSyBlghG_cpGSrAVBJl4l81V-6DLbg_BsOy0';
+        document.write('<script src="https://maps.googleapis.com/maps/api/js?key=' + MAP_API_KEY + '&libraries=places&language=ja" async defer><\/script>');
     </script>
     <style>
         body { font-family: -apple-system, sans-serif; background-color: #f0f2f5; margin: 0; padding: 0; color: #333; }
