@@ -68,6 +68,17 @@
                 </div>
 
                 <label style="margin-top: 16px;">記録内容</label>
+                <!-- ツールバーの追加 -->
+                <div class="editor-toolbar">
+                    <button type="button" title="太字" onclick="formatText('b')"><b>B</b></button>
+                    <button type="button" title="斜体" onclick="formatText('i')"><i>I</i></button>
+                    <button type="button" title="下線" onclick="formatText('u')"><u>U</u></button>
+                    <button type="button" title="取り消し線" onclick="formatText('s')"><s>S</s></button>
+                    <button type="button" title="箇条書きリスト" onclick="formatText('ul')">📋 箇条書き</button>
+                    <button type="button" title="番号付きリスト" onclick="formatText('ol')">🔢 番号付き</button>
+                    <button type="button" title="リンク挿入" onclick="formatText('a')">🔗 リンク</button>
+                    <button type="button" title="書式のクリア" onclick="formatText('clear')">🧹 クリア</button>
+                </div>
                 <textarea id="input-text" placeholder="今日の出来事を記録..."></textarea>
                 
                 <label>写真 (複数選択可)</label>
