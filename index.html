@@ -254,7 +254,7 @@
         }
 
         // 4. アプリ内でHTMLファイルを読み込んで表示
-        async function viewRecord(fileId) {
+        /**async function viewRecord(fileId) {
             document.getElementById('viewer-content').innerHTML = "読み込み中...";
             document.getElementById('viewer-area').style.display = 'block';
             
@@ -271,6 +271,37 @@
                 viewer.innerHTML = htmlText;
 
             } catch (error) {
+                document.getElementById('viewer-content').innerHTML = "読み込みに失敗しました。";
+            }
+        }**/
+        // 4. アプリ内でHTMLファイルを読み込んで表示
+        async function viewRecord(fileId) {
+            document.getElementById('viewer-content').innerHTML = "読み込み中...";
+            document.getElementById('viewer-area').style.display = 'block';
+            
+            try {
+                const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                });
+                if (!res.ok) {
+                    throw new Error("ファイルの読み込みに失敗しました");
+                }
+                const htmlText = await res.text();
+                
+                // iframeを使って安全かつ確実に表示する
+                const viewer = document.getElementById('viewer-content');
+                viewer.innerHTML = ''; // 中身を一度クリア
+                
+                const iframe = document.createElement('iframe');
+                iframe.style.width = '100%';
+                iframe.style.height = '400px'; // 高さはここで調整可能です
+                iframe.style.border = 'none';
+                iframe.srcdoc = htmlText;
+                
+                viewer.appendChild(iframe);
+    
+            } catch (error) {
+                console.error(error);
                 document.getElementById('viewer-content').innerHTML = "読み込みに失敗しました。";
             }
         }
