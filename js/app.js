@@ -1,16 +1,23 @@
 let selectedPhotosData = []; 
 let autocomplete = null;
 let selectedColorId = "";
-let editingRecordId = null; // nullなら新規、IDがあれば編集モード
+let editingRecordId = null; 
 
 window.onload = function () {
-    // マップAPI読み込み
-    document.write = `<script src="https://maps.googleapis.com/maps/api/js?key=${CONFIG.MAP_API_KEY}&libraries=places&language=ja" async defer></script>`;
-    
+    // Google Maps APIを安全に動的読み込み
+    const mapScript = document.createElement('script');
+    mapScript.src = `https://maps.googleapis.com/maps/api/js?key=${CONFIG.MAP_API_KEY}&libraries=places&language=ja`;
+    mapScript.async = true;
+    mapScript.defer = true;
+    mapScript.onload = () => {
+        initAutocomplete();
+    };
+    document.head.appendChild(mapScript);
+
     initDateFields();
-    initAutocomplete();
     initColorPalette();
 
+    // 認証の初期化
     initAuth(() => {
         loadRecordsList();
     });
@@ -65,7 +72,6 @@ function switchTab(tab) {
     }
 }
 
-// 写真選択・圧縮処理
 async function processPhotos(event) {
     const files = event.target.files;
     if (!files || files.length === 0) return;
@@ -143,7 +149,6 @@ function renderPreview() {
     });
 }
 
-// --- 保存・更新処理 ---
 async function saveRecord() {
     const title = document.getElementById('input-title').value;
     const text = document.getElementById('input-text').value;
@@ -175,7 +180,6 @@ async function saveRecord() {
         const htmlFolderId = await getOrCreateFolder('html', rootFolderId);
         const photosFolderId = await getOrCreateFolder('photos', rootFolderId);
 
-        // データベース取得
         let { fileId: dbFileId, records } = await getDatabase(htmlFolderId);
         
         let existingRecord = null;
@@ -183,7 +187,6 @@ async function saveRecord() {
             existingRecord = records.find(r => r.id === editingRecordId);
         }
 
-        // 写真の処理 (新規アップロード分と既存分を統合)
         status.innerText = "写真をアップロード中...";
         const uploadedImgIds = [];
         for (let item of selectedPhotosData) {
@@ -191,11 +194,10 @@ async function saveRecord() {
                 const imgId = await uploadImageToDrive(item.url, `${displayDate.slice(0,10)}_${title}.jpg`, photosFolderId);
                 uploadedImgIds.push(imgId);
             } else {
-                uploadedImgIds.push(item.id); // 既存の画像IDを維持
+                uploadedImgIds.push(item.id);
             }
         }
 
-        // HTMLファイル作成・更新
         status.innerText = "HTMLファイルを保存中...";
         const htmlFileId = await saveHtmlFile(
             htmlFolderId, 
@@ -203,7 +205,6 @@ async function saveRecord() {
             title, displayDate, locationStr, text, uploadedImgIds
         );
 
-        // カレンダー連携
         const snippet = text.length > 100 ? text.substring(0, 100) + "..." : text;
         const descriptionStr = `${snippet}\n\n▼全文・画像はこちら\n${CONFIG.VIEWER_API_URL}?id=${htmlFileId}`;
         const eventData = { summary: `[記録] ${title}`, description: descriptionStr, start: startObj, end: endObj };
@@ -219,7 +220,6 @@ async function saveRecord() {
             calendarEventId = await createCalendarEvent(eventData);
         }
 
-        // データベース(records.json)の更新
         const recordData = {
             id: editingRecordId || 'rec_' + Date.now(),
             htmlFileId: htmlFileId,
@@ -256,7 +256,6 @@ async function saveRecord() {
     }
 }
 
-// --- 履歴一覧の読み込み ---
 async function loadRecordsList() {
     try {
         const rootFolderId = await getOrCreateFolder('MyRecordApp');
@@ -287,7 +286,6 @@ async function loadRecordsList() {
     } catch (error) { console.error(error); }
 }
 
-// 編集画面にデータをロード
 function loadRecordIntoForm(record) {
     editingRecordId = record.id;
     document.getElementById('input-title').value = record.title;
@@ -303,7 +301,6 @@ function loadRecordIntoForm(record) {
         document.getElementById('input-end-datetime').value = record.end;
     }
 
-    // カラーパレット復元
     selectedColorId = record.colorId || "";
     document.querySelectorAll('.color-chip').forEach(c => {
         c.classList.remove('selected');
@@ -312,19 +309,15 @@ function loadRecordIntoForm(record) {
         }
     });
 
-    // 写真プレビュー復元
     selectedPhotosData = (record.photos || []).map(id => ({ id: id, url: `https://drive.google.com/thumbnail?id=${id}&sz=w200`, isNew: false }));
     renderPreview();
 
-    // 削除ボタンを表示し、ボタン名を変更
     document.getElementById('save-btn-text').innerText = "変更を保存する";
     document.getElementById('delete-btn').style.display = 'block';
 
-    // 記録するタブへ移動
     switchTab('create');
 }
 
-// --- 削除処理 ---
 async function deleteCurrentRecord() {
     if (!editingRecordId) return;
     if (!confirm("この記録とGoogleカレンダーの予定を完全に削除しますか？")) return;
@@ -339,12 +332,9 @@ async function deleteCurrentRecord() {
 
         const record = records.find(r => r.id === editingRecordId);
         if (record) {
-            // ドライブのHTMLファイル削除
             if (record.htmlFileId) await deleteDriveFile(record.htmlFileId);
-            // カレンダー予定削除
             if (record.calendarEventId) await deleteCalendarEvent(record.calendarEventId);
             
-            // データベースから除外して保存
             records = records.filter(r => r.id !== editingRecordId);
             await saveDatabase(htmlFolderId, dbFileId, records);
         }
