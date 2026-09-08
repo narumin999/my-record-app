@@ -17,7 +17,7 @@ header { background-color: #4285f4; color: white; padding: 16px; text-align: cen
 
 label { display: block; margin-top: 12px; font-size: 14px; font-weight: bold; color: #555; }
 input[type="text"], input[type="date"], input[type="datetime-local"], textarea { width: 100%; padding: 10px; margin-top: 4px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 16px; }
-textarea { height: 120px; resize: none; }
+textarea { height: 140px; resize: none; }
 
 .record-item { padding: 12px; border-bottom: 1px solid #eee; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
 .record-item:hover { background-color: #f9f9f9; }
@@ -48,4 +48,36 @@ textarea { height: 120px; resize: none; }
     transform: scale(1.15);
     box-shadow: 0 2px 6px rgba(0,0,0,0.3);
     font-weight: bold;
+}
+
+/* ツールバーのスタイル */
+.editor-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    background: #f8f9fa;
+    padding: 6px;
+    border: 1px solid #ccc;
+    border-bottom: none;
+    border-radius: 4px 4px 0 0;
+    margin-top: 4px;
+}
+.editor-toolbar button {
+    background: #ffffff;
+    border: 1px solid #dcdcdc;
+    padding: 6px 10px;
+    font-size: 13px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #333;
+    transition: background 0.1s;
+}
+.editor-toolbar button:hover {
+    background: #e8eaed;
+}
+/* テキストエリアとツールバーを結合するための調整 */
+#input-text {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    margin-top: 0;
 }
