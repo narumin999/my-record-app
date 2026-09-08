@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>マイ記録アプリ</title>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <!-- Google Maps API (Places ライブラリ読込) -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=782455304746-gtiptf9v3vg3c4s3l6l9q66k8m8n4gt5.apps.googleusercontent.com&libraries=places&language=ja" async defer></script>
     
     <style>
         body { font-family: -apple-system, sans-serif; background-color: #f0f2f5; margin: 0; padding: 0; color: #333; }
@@ -62,8 +64,8 @@
                     <div class="datetime-group">終了: <input type="datetime-local" id="input-end-datetime"></div>
                 </div>
 
-                <label>場所 (Googleマップと連携)</label>
-                <input type="text" id="input-location" placeholder="場所の名前や住所を入力">
+                <label>場所 (Googleマップ連動サジェスト)</label>
+                <input type="text" id="input-location" placeholder="場所名や施設名を入力すると候補が出ます">
 
                 <label>カレンダーの色</label>
                 <select id="input-color">
@@ -116,9 +118,12 @@
         let tokenClient;
         let accessToken = null;
         let selectedPhotosData = []; 
+        let autocomplete = null;
 
         window.onload = function () {
             initDateFields();
+            initAutocomplete(); // Googleマップのサジェスト機能を初期化
+            
             tokenClient = google.accounts.oauth2.initTokenClient({
                 client_id: CLIENT_ID,
                 scope: SCOPES,
@@ -132,6 +137,19 @@
                 },
             });
         };
+
+        // Google Places Autocompleteのセットアップ
+        function initAutocomplete() {
+            const input = document.getElementById('input-location');
+            if (window.google && window.google.maps && window.google.maps.places) {
+                autocomplete = new google.maps.places.Autocomplete(input, {
+                    types: ['geocode', 'establishment'] // 住所や施設名を広く検索対象にする
+                });
+            } else {
+                // 万が一マップの読み込みが遅れている場合は少し待ってから再試行
+                setTimeout(initAutocomplete, 500);
+            }
+        }
 
         function handleAuthClick() { tokenClient.requestAccessToken(); }
 
@@ -248,7 +266,6 @@
             });
         }
 
-        // --- Driveフォルダの作成・検索処理 ---
         async function getOrCreateFolder(folderName, parentId = null) {
             let q = `name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
             if (parentId) q += ` and '${parentId}' in parents`;
@@ -258,7 +275,7 @@
             });
             const data = await res.json();
             if (data.files && data.files.length > 0) {
-                return data.files[0].id; // 既存フォルダがあればそのIDを返す
+                return data.files[0].id;
             } else {
                 const metadata = { name: folderName, mimeType: 'application/vnd.google-apps.folder' };
                 if (parentId) metadata.parents = [parentId];
@@ -269,7 +286,7 @@
                     body: JSON.stringify(metadata)
                 });
                 const createData = await createRes.json();
-                return createData.id; // 新規作成したフォルダのIDを返す
+                return createData.id;
             }
         }
 
@@ -299,7 +316,6 @@
             if(!title) { alert("タイトルは必須です！"); return; }
             if(VIEWER_API_URL.includes('【')) { alert("プログラムの72行目にあるVIEWER_API_URLの設定を忘れています！"); return; }
 
-            // カレンダー日時の取得
             const isAllDay = document.getElementById('is-allday').checked;
             let startObj, endObj, displayDate;
             if (isAllDay) {
@@ -322,13 +338,11 @@
             const status = document.getElementById('status-msg');
             
             try {
-                // 1. フォルダ構成の準備 (MyRecordApp -> html / photos)
                 status.innerText = "保存先フォルダを準備中...";
                 const rootFolderId = await getOrCreateFolder('MyRecordApp');
                 const htmlFolderId = await getOrCreateFolder('html', rootFolderId);
                 const photosFolderId = await getOrCreateFolder('photos', rootFolderId);
 
-                // 2. 画像のアップロード
                 const uploadedImgIds = [];
                 if (selectedPhotosData.length > 0) {
                     status.innerText = `写真をGoogle Driveにアップロード中... (全${selectedPhotosData.length}枚)`;
@@ -338,7 +352,6 @@
                     }
                 }
 
-                // 3. HTMLの作成と保存
                 status.innerText = "記録データ(HTML)を作成中...";
                 let htmlContent = `<!DOCTYPE html>
 <html>
@@ -378,7 +391,6 @@
                 });
                 const driveData = await driveRes.json();
                 
-                // 4. カレンダー連携
                 status.innerText = "カレンダーに予定を追加中...";
                 const snippet = text.length > 100 ? text.substring(0, 100) + "..." : text;
                 const descriptionStr = `${snippet}\n\n▼全文・画像はこちら\n${VIEWER_API_URL}?id=${driveData.id}`;
@@ -401,14 +413,13 @@
                 status.innerText = "保存が完了しました！";
                 status.style.color = "green";
                 
-                // 初期化
                 document.getElementById('input-title').value = '';
                 document.getElementById('input-text').value = '';
                 document.getElementById('input-location').value = '';
                 document.getElementById('input-color').value = '';
                 selectedPhotosData = [];
                 renderPreview();
-                initDateFields(); // 日時を現在にリセット
+                initDateFields();
                 
                 setTimeout(() => { status.innerText = ""; status.style.color = "#333"; }, 3000);
                 loadRecords();
@@ -471,6 +482,7 @@
             }
         }
 
+        /* 閉じるボタン */
         function closeViewer() { document.getElementById('viewer-area').style.display = 'none'; }
     </script>
 </body>
