@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>マイ記録アプリ</title>
+    <!-- Google Identity Services -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    
+    <!-- スタイルシート読込 -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>マイ記録アプリ</header>
+    <div class="container">
+        <!-- ログイン画面 -->
+        <div id="login-screen">
+            <h3>Googleアカウントでログイン</h3>
+            <p style="font-size: 14px; color: #666; margin-bottom: 20px;">ボタンを押してアプリを開始してください</p>
+            <button class="btn" onclick="handleAuthClick()">ログインして開始</button>
+        </div>
+
+        <div id="main-app" style="display: none;">
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('create')">記録する</button>
+                <button class="tab-btn" onclick="switchTab('view')">履歴一覧</button>
+            </div>
+
+            <!-- 記録 / 編集タブ -->
+            <div id="tab-create" class="tab-content active">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h3 id="form-mode-title" style="margin:0 0 10px 0; font-size:16px; color:#4285f4;">新規作成モード</h3>
+                    <button class="btn btn-secondary" style="width:auto; padding:4px 10px; font-size:12px; margin:0;" onclick="resetForm()">新規作成に切り替え</button>
+                </div>
+
+                <label>タイトル</label>
+                <input type="text" id="input-title" placeholder="例: Hakuba旅行 1日目">
+                
+                <label>日時</label>
+                <div style="margin-top:4px;">
+                    <input type="checkbox" id="is-allday" checked onchange="toggleDateTime()"> <label for="is-allday" style="display:inline; font-weight:normal;">終日</label>
+                </div>
+                <div id="date-inputs">
+                    <input type="date" id="input-date">
+                </div>
+                <div id="datetime-inputs" style="display:none;">
+                    <div class="datetime-group">開始: <input type="datetime-local" id="input-start-datetime"></div>
+                    <div class="datetime-group">終了: <input type="datetime-local" id="input-end-datetime"></div>
+                </div>
+
+                <label>場所 (Googleマップ連動サジェスト)</label>
+                <input type="text" id="input-location" placeholder="場所名や施設名を入力すると候補が出ます">
+
+                <label>カレンダーの色</label>
+                <div class="color-palette" id="color-palette">
+                    <div class="color-chip selected" data-value="" title="デフォルト" style="background: #f1f3f4; color: #5f6368;">標準</div>
+                    <div class="color-chip" data-value="1" title="ラベンダー" style="background: #7986CB;"></div>
+                    <div class="color-chip" data-value="2" title="セージ" style="background: #33B679;"></div>
+                    <div class="color-chip" data-value="3" title="ブドウ" style="background: #8E24AA;"></div>
+                    <div class="color-chip" data-value="4" title="フラミンゴ" style="background: #E67C73;"></div>
+                    <div class="color-chip" data-value="5" title="バナナ" style="background: #F6BF26;"></div>
+                    <div class="color-chip" data-value="6" title="ミカン" style="background: #F4511E;"></div>
+                    <div class="color-chip" data-value="7" title="ピーコック" style="background: #039BE5;"></div>
+                    <div class="color-chip" data-value="8" title="グラファイト" style="background: #616161;"></div>
+                    <div class="color-chip" data-value="9" title="ブルーベリー" style="background: #3F51B5;"></div>
+                    <div class="color-chip" data-value="10" title="バジル" style="background: #0B8043;"></div>
+                    <div class="color-chip" data-value="11" title="トマト" style="background: #D50000;"></div>
+                </div>
+
+                <label style="margin-top: 16px;">記録内容</label>
+                <textarea id="input-text" placeholder="今日の出来事を記録..."></textarea>
+                
+                <label>写真 (複数選択可)</label>
+                <input type="file" id="photo-upload" multiple accept="image/*" style="display: none;" onchange="processPhotos(event)">
+                <button class="btn" style="background:#34a853; margin-top:4px;" onclick="document.getElementById('photo-upload').click()">写真を選ぶ (複数選択可)</button>
+                <div id="selected-photos-preview" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;"></div>
+                
+                <div id="status-msg"></div>
+                
+                <button class="btn" style="margin-top: 20px;" onclick="saveRecord()">
+                    <span id="save-btn-text">保存 (Drive連携 & カレンダー登録)</span>
+                </button>
+                
+                <button id="delete-btn" class="btn btn-danger" style="display: none; margin-top: 10px;" onclick="deleteCurrentRecord()">
+                    この記録を削除する
+                </button>
+            </div>
+
+            <!-- 履歴一覧タブ -->
+            <div id="tab-view" class="tab-content">
+                <button class="btn" onclick="loadRecordsList()">再読み込み</button>
+                <div id="record-list" style="margin-top: 16px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 各JavaScriptモジュールの順次読み込み -->
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/drive.js"></script>
+    <script src="js/calendar.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
