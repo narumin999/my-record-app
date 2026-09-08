@@ -370,3 +370,50 @@ function resetForm() {
     document.getElementById('save-btn-text').innerText = "保存 (Drive連携 & カレンダー登録)";
     document.getElementById('delete-btn').style.display = 'none';
 }
+
+// --- HTML入力支援ツールバーの処理 ---
+function formatText(type) {
+    const textarea = document.getElementById('input-text');
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = textarea.value.substring(start, end);
+    let replacement = '';
+
+    switch(type) {
+        case 'b':
+            replacement = `<b>${selectedText}</b>`;
+            break;
+        case 'i':
+            replacement = `<i>${selectedText}</i>`;
+            break;
+        case 'u':
+            replacement = `<u>${selectedText}</u>`;
+            break;
+        case 's':
+            replacement = `<s>${selectedText}</s>`;
+            break;
+        case 'ul':
+            replacement = `<ul>\n  <li>${selectedText || 'リスト項目'}</li>\n</ul>`;
+            break;
+        case 'ol':
+            replacement = `<ol>\n  <li>${selectedText || 'リスト項目'}</li>\n</ol>`;
+            break;
+        case 'a':
+            const url = prompt("リンク先のURLを入力してください:", "https://");
+            if (!url) return;
+            const linkText = selectedText || prompt("リンクの表示テキストを入力してください:", "リンク");
+            replacement = `<a href="${url}" target="_blank">${linkText}</a>`;
+            break;
+        case 'clear':
+            // 選択部分のHTMLタグを簡易的に除去する
+            replacement = selectedText.replace(/<\/?[^>]+(>|$)/g, "");
+            break;
+    }
+
+    // テキストエリアの選択範囲をHTMLタグ付きに置換
+    textarea.value = textarea.value.substring(0, start) + replacement + textarea.value.substring(end);
+    textarea.focus();
+    
+    // カーソル位置（または選択状態）の調整
+    textarea.setSelectionRange(start + replacement.length, start + replacement.length);
+}
