@@ -193,18 +193,28 @@
                 status.innerText = "Googleカレンダーに予定を追加中...";
 
                 // カレンダーに予定を追加
-                const event = {
+                /**const event = {
                     summary: `[記録] ${title}`,
                     description: `アプリから記録されました。\n\n▼詳細（HTML）へのリンク\n${driveData.webViewLink}`,
                     start: { date: date }, // 終日予定
                     end: { date: date }
+                };**/
+                // ★作成したビューアAPIのURLをセットします
+                const VIEWER_API_URL = "https://script.google.com/macros/s/AKfycbzlTKnLv5NNlRQFC4DvmoimhflCJMLltOuDBxNwSbRvW3apZ8KnlF2fg2k25FXsKPXP/exec";
+    
+                // カレンダーに予定を追加
+                const event = {
+                    summary: `[記録] ${title}`,
+                    // webViewLinkではなく、APIのURLに ?id=ファイルID をくっつけて送信する
+                    description: `アプリから記録されました。\n\n▼詳細を開く\n${VIEWER_API_URL}?id=${driveData.id}`,
+                    start: { date: date }, // 終日予定
+                    end: { date: date }
                 };
-
-                await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify(event)
-                });
+                    await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify(event)
+                    });
 
                 status.innerText = "保存が完了しました！";
                 status.style.color = "green";
