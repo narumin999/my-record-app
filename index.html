@@ -6,8 +6,11 @@
     <title>マイ記録アプリ</title>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <!-- Google Maps API (Places ライブラリ読込) -->
-    <script src="https://maps.googleapis.com/maps/api/js?key=782455304746-gtiptf9v3vg3c4s3l6l9q66k8m8n4gt5.apps.googleusercontent.com&libraries=places&language=ja" async defer></script>
-    
+    <script>
+    // Google Maps APIを動的に正しいクライアントIDで読み込む
+    const CLIENT_ID_MAP = '782455304746-gtiptf9v3vg3c4s3l6l9q66k8m8n4gt5.apps.googleusercontent.com';
+    document.write('<script src="https://maps.googleapis.com/maps/api/js?key=' + CLIENT_ID_MAP + '&libraries=places&language=ja" async defer><\/script>');
+    </script>
     <style>
         body { font-family: -apple-system, sans-serif; background-color: #f0f2f5; margin: 0; padding: 0; color: #333; }
         header { background-color: #4285f4; color: white; padding: 16px; text-align: center; font-weight: bold; font-size: 1.2rem; }
