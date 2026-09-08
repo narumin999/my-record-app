@@ -14,15 +14,9 @@ function initAuth(onSuccess) {
             }
         },
     });
-
-    // 自動サイレントログイン試行
-    try {
-        tokenClient.requestAccessToken({ prompt: '' });
-    } catch (e) {
-        console.log("自動ログインスキップ", e);
-    }
 }
 
 function handleAuthClick() {
+    // ユーザーのクリック操作で実行されるため、ブロックされずにログイン画面が開きます
     tokenClient.requestAccessToken({ prompt: 'consent' });
 }
