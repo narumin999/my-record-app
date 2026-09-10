@@ -93,15 +93,22 @@ async function uploadImageToDrive(base64Data, filename, folderId) {
 
 // HTMLファイル作成・更新
 async function saveHtmlFile(htmlFolderId, existingFileId, title, displayDate, locationStr, text, uploadedImgIds) {
+    // 場所の文字列がある場合、Googleマップの検索URLを作成してリンク化する
+    let locationHtml = '';
+    if (locationStr) {
+        const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(locationStr)}`;
+        locationHtml = `<p style="color:#666;">場所: <a href="${mapUrl}" target="_blank" style="color:#4285f4; text-decoration:underline;">${locationStr}</a></p>`;
+    }
+
     let htmlContent = `<!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${title}</title></head>
-<body style="font-family:sans-serif; padding:16px; max-width:800px; margin:0 auto;">
-    <h2>${title}</h2>
-    <p style="color:#666;">日時: ${displayDate}</p>
-    ${locationStr ? `<p style="color:#666;">場所: ${locationStr}</p>` : ''}
-    <p style="line-height:1.6;">${text.replace(/\n/g, '<br>')}</p>
-`;
+    <html>
+    <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${title}</title></head>
+    <body style="font-family:sans-serif; padding:16px; max-width:800px; margin:0 auto;">
+        <h2>${title}</h2>
+        <p style="color:#666;">日時: ${displayDate}</p>
+        ${locationHtml}
+        <div style="line-height:1.6; margin-top:16px;">${text}</div>
+    `;
     if (uploadedImgIds.length > 0) {
         htmlContent += `\n    <hr>\n    <p>添付画像:</p>\n    <div style="display:flex; flex-wrap:wrap; gap:10px;">`;
         uploadedImgIds.forEach(id => {
