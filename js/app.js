@@ -391,6 +391,7 @@ function loadRecordIntoForm(record) {
     document.getElementById('save-btn-text').innerText = "変更を保存する";
     document.getElementById('delete-btn').style.display = 'block';
     document.getElementById('share-btn').style.display = 'block'; // ★公開ボタンを表示
+    document.getElementById('sns-btn').style.display = 'block'; // ★この1行を追加
     switchTab('create');
 }
 
@@ -428,6 +429,7 @@ function resetForm() {
     document.getElementById('save-btn-text').innerText = "保存 (Drive連携 & カレンダー登録)";
     document.getElementById('delete-btn').style.display = 'none';
     document.getElementById('share-btn').style.display = 'none'; // ★公開ボタンを非表示
+    document.getElementById('sns-btn').style.display = 'none'; // ★この1行を追加
 }
 
 // ▼ ゲストへの公開（カレンダー招待と権限付与）ロジック
