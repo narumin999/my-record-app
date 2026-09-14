@@ -1,8 +1,9 @@
-let selectedFilesData = []; // photos から files に変更
+let selectedFilesData = [];
 let autocomplete = null;
 let selectedColorId = "";
 let modalSelectedColorId = "";
 let editingRecordId = null; 
+let currentEditingRecordObj = null; // ★追加：現在編集中の記録オブジェクト全体を保持
 
 let globalCategories = [
     { name: "記録", colorId: "" }, { name: "外食", colorId: "11" },
@@ -141,7 +142,6 @@ function switchTab(tab) {
     else { document.querySelectorAll('.tab-btn')[1].classList.add('active'); document.getElementById('tab-view').classList.add('active'); loadRecordsList(); }
 }
 
-// ▼ 画像以外のファイルも読み込む処理
 async function processFiles(event) {
     const files = event.target.files;
     if (!files || files.length === 0) return;
@@ -151,10 +151,8 @@ async function processFiles(event) {
         try {
             let base64Data;
             if (file.type.startsWith('image/')) {
-                // 画像の場合はキャンバスでリサイズ
                 base64Data = await resizeImage(file, 1200, 1200);
             } else {
-                // 動画や書類の場合（メモリ制限のため20MB以上は弾く）
                 if (file.size > 20 * 1024 * 1024) {
                     alert(`「${file.name}」はサイズが大きすぎます（約20MB以下にしてください）`);
                     continue;
@@ -169,7 +167,6 @@ async function processFiles(event) {
     event.target.value = ""; 
 }
 
-// ファイルをそのままBase64に変換する関数
 function readFileAsDataURL(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -216,7 +213,6 @@ function renderFilePreview() {
             content.style.backgroundColor = '#ddd'; content.style.borderRadius = '4px';
             content.style.display = 'flex'; content.style.alignItems = 'center'; content.style.justifyContent = 'center';
             content.style.fontSize = '10px'; content.style.textAlign = 'center'; content.style.padding = '2px'; content.style.boxSizing = 'border-box';
-            // ファイル名が長い場合は省略
             content.innerText = item.name.length > 10 ? item.name.substring(0, 8) + '...' : item.name;
         }
         
@@ -281,8 +277,6 @@ async function saveRecord() {
         status.innerText = "保存先フォルダを準備中...";
         const rootFolderId = await getOrCreateFolder('MyRecordApp');
         const htmlFolderId = await getOrCreateFolder('html', rootFolderId);
-        
-        // 旧互換性のためフォルダ名は「photos」のまま利用します
         const filesFolderId = await getOrCreateFolder('photos', rootFolderId); 
 
         let { fileId: dbFileId, dbData } = await getDatabase(htmlFolderId);
@@ -294,7 +288,6 @@ async function saveRecord() {
         const uploadedFiles = [];
         for (let item of selectedFilesData) {
             if (item.isNew) {
-                // 画像の場合は元のファイル名がないことがあるためデフォルト名を付与
                 const filename = item.name || `${displayDate.slice(0,10)}_${title}_添付.jpg`;
                 const fileType = item.type || 'image/jpeg';
                 const fileId = await uploadFileToDrive(item.url, filename, fileType, filesFolderId);
@@ -371,6 +364,8 @@ async function loadRecordsList() {
 
 function loadRecordIntoForm(record) {
     editingRecordId = record.id;
+    currentEditingRecordObj = record; // ★公開用にオブジェクトを記憶
+
     document.getElementById('input-category').value = record.category || '記録';
     onCategoryChange();
     if (record.colorId !== undefined) selectColorInMainPalette(record.colorId);
@@ -383,13 +378,9 @@ function loadRecordIntoForm(record) {
     if (record.isAllDay) document.getElementById('input-date').value = record.start;
     else { document.getElementById('input-start-datetime').value = record.start; document.getElementById('input-end-datetime').value = record.end; }
 
-    // ▼ 古い形式（photos: [id1, id2]）と新しい形式（files: [{id, name, type}]）の両方を安全に読み込む処理
     let filesData = [];
-    if (record.files) {
-        filesData = record.files;
-    } else if (record.photos) {
-        filesData = record.photos.map(id => ({ id: id, name: '画像', type: 'image/jpeg' }));
-    }
+    if (record.files) filesData = record.files;
+    else if (record.photos) filesData = record.photos.map(id => ({ id: id, name: '画像', type: 'image/jpeg' }));
 
     selectedFilesData = filesData.map(f => {
         let fileUrl = `https://drive.google.com/thumbnail?id=${f.id}&sz=w200`;
@@ -399,6 +390,7 @@ function loadRecordIntoForm(record) {
 
     document.getElementById('save-btn-text').innerText = "変更を保存する";
     document.getElementById('delete-btn').style.display = 'block';
+    document.getElementById('share-btn').style.display = 'block'; // ★公開ボタンを表示
     switchTab('create');
 }
 
@@ -428,10 +420,64 @@ async function deleteCurrentRecord() {
 
 function resetForm() {
     editingRecordId = null;
+    currentEditingRecordObj = null; // ★リセット
     document.getElementById('input-category').value = '記録'; onCategoryChange();
     document.getElementById('input-title').value = ''; document.getElementById('input-text').value = ''; document.getElementById('input-location').value = '';
     selectedFilesData = []; renderFilePreview();
     initDateFields(); document.getElementById('is-allday').checked = true; toggleDateTime();
     document.getElementById('save-btn-text').innerText = "保存 (Drive連携 & カレンダー登録)";
     document.getElementById('delete-btn').style.display = 'none';
+    document.getElementById('share-btn').style.display = 'none'; // ★公開ボタンを非表示
+}
+
+// ▼ ゲストへの公開（カレンダー招待と権限付与）ロジック
+function openShareModal() { 
+    document.getElementById('share-modal').style.display = 'flex'; 
+    document.getElementById('guest-email').value = ''; 
+    document.getElementById('share-status-msg').innerText = ''; 
+}
+function closeShareModal() { document.getElementById('share-modal').style.display = 'none'; }
+
+async function publishRecord() {
+    const emailStr = document.getElementById('guest-email').value.trim();
+    if (!emailStr) return alert("メールアドレスを入力してください");
+    if (!currentEditingRecordObj || !currentEditingRecordObj.calendarEventId) return alert("カレンダー予定が見つかりません。先に保存してください。");
+
+    // カンマ区切りで複数のメールアドレスを抽出
+    const emails = emailStr.split(',').map(e => e.trim()).filter(e => e);
+    if (emails.length === 0) return alert("有効なメールアドレスがありません");
+
+    const status = document.getElementById('share-status-msg');
+    status.innerText = "ゲストを招待し、権限を付与しています...";
+    status.style.color = "#333";
+
+    try {
+        // 1. カレンダーへゲスト追加と招待状の送信
+        await addGuestToCalendarEvent(currentEditingRecordObj.calendarEventId, emails);
+
+        // 2. 指定したユーザーにHTMLと全添付ファイルの閲覧権限を付与
+        for (let email of emails) {
+            if (currentEditingRecordObj.htmlFileId) {
+                await shareFileWithEmail(currentEditingRecordObj.htmlFileId, email);
+            }
+            let filesList = currentEditingRecordObj.files || [];
+            if (filesList.length === 0 && currentEditingRecordObj.photos) {
+                // 古いデータ形式の互換性
+                filesList = currentEditingRecordObj.photos.map(id => ({ id: id }));
+            }
+            if (filesList.length > 0) {
+                for (let f of filesList) {
+                    await shareFileWithEmail(f.id, email);
+                }
+            }
+        }
+
+        status.innerText = "公開が完了し、招待状を送信しました！";
+        status.style.color = "green";
+        setTimeout(() => { closeShareModal(); }, 2000);
+    } catch (error) {
+        console.error(error);
+        status.innerText = "エラーが発生しました。設定を確認してください。";
+        status.style.color = "red";
+    }
 }
