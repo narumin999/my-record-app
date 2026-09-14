@@ -36,8 +36,7 @@
 
                 <label>分類</label>
                 <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
-                    <select id="input-category" style="margin-top: 0; margin-bottom: 0; flex: 1;" onchange="onCategoryChange()">
-                    </select>
+                    <select id="input-category" style="margin-top: 0; margin-bottom: 0; flex: 1;" onchange="onCategoryChange()"></select>
                     <button type="button" class="btn btn-secondary" style="width: auto; margin: 0; padding: 10px;" onclick="openCategoryModal()">⚙️ 追加・編集</button>
                 </div>
 
@@ -75,18 +74,9 @@
                 </div>
                 <textarea id="input-text" placeholder="今日の出来事を記録..."></textarea>
                 
-                <label style="margin-top: 12px;">添付ファイル (複数選択可)</label>
-                
-                <!-- 写真・動画用 (AndroidのGoogleフォト等が開きやすくなります) -->
-                <input type="file" id="media-upload" multiple accept="image/*,video/*" style="display: none;" onchange="processFiles(event)">
-                <!-- 書類用 -->
-                <input type="file" id="doc-upload" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" style="display: none;" onchange="processFiles(event)">
-                
-                <div style="display: flex; gap: 10px; margin-top: 4px;">
-                    <button type="button" class="btn" style="background:#34a853; margin:0; flex:1;" onclick="document.getElementById('media-upload').click()">📷 写真・動画</button>
-                    <button type="button" class="btn" style="background:#fbbc04; color:#333; margin:0; flex:1;" onclick="document.getElementById('doc-upload').click()">📎 書類・PDF</button>
-                </div>
-                
+                <label>添付ファイル (写真・動画・文書など 複数可)</label>
+                <input type="file" id="file-upload" multiple accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" style="display: none;" onchange="processFiles(event)">
+                <button class="btn" style="background:#34a853; margin-top:4px;" onclick="document.getElementById('file-upload').click()">ファイルを選ぶ</button>
                 <div id="selected-files-preview" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;"></div>
                 
                 <div id="status-msg"></div>
@@ -95,9 +85,10 @@
                     <span id="save-btn-text">保存 (Drive連携 & カレンダー登録)</span>
                 </button>
                 
-                <button id="delete-btn" class="btn btn-danger" style="display: none; margin-top: 10px;" onclick="deleteCurrentRecord()">
-                    この記録を削除する
-                </button>
+                <div style="display:flex; gap:10px; margin-top: 10px;">
+                    <button id="share-btn" class="btn" style="display: none; flex: 1; background-color: #f4b400; color: white;" onclick="openShareModal()">🌐 ゲストに公開</button>
+                    <button id="delete-btn" class="btn btn-danger" style="display: none; flex: 1;" onclick="deleteCurrentRecord()">🗑️ この記録を削除</button>
+                </div>
             </div>
 
             <div id="tab-view" class="tab-content">
@@ -112,18 +103,32 @@
         <div class="modal-content">
             <h3 style="margin-top:0;">分類の追加・編集</h3>
             <div id="category-list" style="margin-bottom: 16px;"></div>
-            
             <hr style="margin: 16px 0; border: none; border-top: 1px solid #ddd;">
             <h4 style="margin:0 0 8px 0;">新しい分類を追加</h4>
             <input type="text" id="new-cat-name" placeholder="分類名を入力">
             <label style="margin-top: 12px;">紐づける色</label>
             <div class="color-palette" id="modal-color-palette"></div>
-            
             <div id="modal-status-msg" style="margin-top:10px; font-size:14px; font-weight:bold; text-align:center;"></div>
-            
             <div style="display:flex; gap:10px; margin-top: 20px;">
                 <button class="btn" style="margin:0;" onclick="addCategory()">追加して保存</button>
                 <button class="btn btn-secondary" style="margin:0;" onclick="closeCategoryModal()">閉じる</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ゲスト公開モーダル -->
+    <div id="share-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 style="margin-top:0; color:#f4b400;">🌐 ゲストに公開</h3>
+            <p style="font-size: 14px; color: #666;">入力したメールアドレスのユーザーをカレンダーのゲストに招待し、この記録専用の閲覧権限を付与します。</p>
+            <label>ゲストのメールアドレス</label>
+            <input type="email" id="guest-email" placeholder="例: guest@example.com (複数はカンマ区切り)">
+            
+            <div id="share-status-msg" style="margin-top:10px; font-size:14px; font-weight:bold; text-align:center;"></div>
+            
+            <div style="display:flex; gap:10px; margin-top: 20px;">
+                <button class="btn" style="margin:0; background:#f4b400;" onclick="publishRecord()">公開して招待状を送る</button>
+                <button class="btn btn-secondary" style="margin:0;" onclick="closeShareModal()">キャンセル</button>
             </div>
         </div>
     </div>
