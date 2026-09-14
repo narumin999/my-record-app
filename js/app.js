@@ -481,3 +481,67 @@ async function publishRecord() {
         status.style.color = "red";
     }
 }
+
+// --- SNSシェア機能 ---
+async function shareToSNS() {
+    if (!navigator.share) {
+        alert("お使いのブラウザはシェア機能に対応していません。スマートフォンの標準ブラウザでお試しください。");
+        return;
+    }
+
+    const status = document.getElementById('status-msg');
+    status.innerText = "SNS起動の準備中...";
+    status.style.color = "#333";
+    
+    const title = document.getElementById('input-title').value;
+    const category = document.getElementById('input-category').value || '記録';
+    const rawText = document.getElementById('input-text').value;
+    const text = stripHtmlTags(rawText);
+    
+    const filesToShare = [];
+    
+    try {
+        // 添付ファイルから画像・動画だけを抽出してシェア用の形式に変換
+        for (let i = 0; i < selectedFilesData.length; i++) {
+            const item = selectedFilesData[i];
+            if (item.type && (item.type.startsWith('image/') || item.type.startsWith('video/'))) {
+                if (item.url.startsWith('data:')) {
+                    // 新規追加中のファイル
+                    let arr = item.url.split(','), mime = arr[0].match(/:(.*?);/)[1];
+                    let bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
+                    while(n--) { u8arr[n] = bstr.charCodeAt(n); }
+                    filesToShare.push(new File([u8arr], item.name || `share_${i}.jpg`, {type:mime}));
+                } else if (item.id) {
+                    // ドライブに保存済みの既存ファイルを再取得
+                    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${item.id}?alt=media`, {
+                        headers: { 'Authorization': `Bearer ${accessToken}` }
+                    });
+                    const blob = await res.blob();
+                    filesToShare.push(new File([blob], item.name || `share_${i}.jpg`, {type: item.type}));
+                }
+            }
+        }
+
+        const shareData = {
+            title: title,
+            text: `【${title}】\n\n${text}\n\n#${category}`
+        };
+
+        // 画像が含まれている場合はファイルをセット
+        if (filesToShare.length > 0 && navigator.canShare && navigator.canShare({ files: filesToShare })) {
+            shareData.files = filesToShare;
+        }
+
+        status.innerText = "";
+        
+        // スマホのシェア画面を呼び出し
+        await navigator.share(shareData);
+        
+    } catch (err) {
+        status.innerText = "";
+        if (err.name !== 'AbortError') { // ユーザーがシェア画面を閉じただけの場合はエラー表示しない
+            console.error(err);
+            alert("シェア中にエラーが発生しました。");
+        }
+    }
+}
