@@ -92,10 +92,29 @@
                     <button id="delete-btn" class="btn btn-danger" style="display: none; flex: 1;" onclick="deleteCurrentRecord()">🗑️ 削除</button>
                 </div>
             </div>
-            
+
+            <!-- 前略：タブの切り替え部分から履歴一覧タブのみ修正 -->
+
+            <!-- 履歴一覧タブ -->
             <div id="tab-view" class="tab-content">
-                <button class="btn" onclick="loadRecordsList()">再読み込み</button>
-                <div id="record-list" style="margin-top: 16px;"></div>
+                <div style="display: flex; gap: 10px; margin-bottom: 16px;">
+                    <select id="filter-category" onchange="applyFilters()" style="flex:1; padding:8px; border-radius:4px; border:1px solid #ccc;">
+                        <option value="">全分類</option>
+                    </select>
+                    <select id="filter-month" onchange="applyFilters()" style="flex:1; padding:8px; border-radius:4px; border:1px solid #ccc;">
+                        <option value="">全期間</option>
+                    </select>
+                </div>
+                
+                <button class="btn" onclick="loadRecordsList()">最新データを読み込み</button>
+                <div id="record-list" style="margin-top: 16px; min-height: 200px;"></div>
+                
+                <!-- ページネーション（ページ送り） -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
+                    <button id="prev-page-btn" class="btn btn-secondary" style="width:auto; padding:8px 16px; margin:0;" onclick="changePage(-1)">前へ</button>
+                    <span id="page-indicator" style="font-size:14px; font-weight:bold; color:#666;">1 / 1</span>
+                    <button id="next-page-btn" class="btn btn-secondary" style="width:auto; padding:8px 16px; margin:0;" onclick="changePage(1)">次へ</button>
+                </div>
             </div>
         </div>
     </div>
@@ -118,13 +137,16 @@
         </div>
     </div>
 
-    <!-- ゲスト公開モーダル -->
+<!-- ゲスト公開モーダル -->
     <div id="share-modal" class="modal-overlay">
         <div class="modal-content">
             <h3 style="margin-top:0; color:#f4b400;">🌐 ゲストに公開</h3>
             <p style="font-size: 14px; color: #666;">入力したメールアドレスのユーザーをカレンダーのゲストに招待し、この記録専用の閲覧権限を付与します。</p>
             <label>ゲストのメールアドレス</label>
-            <input type="email" id="guest-email" placeholder="例: guest@example.com (複数はカンマ区切り)">
+            
+            <!-- ▼ inputに list="email-suggestions" を追加し、datalistを用意 ▼ -->
+            <input type="email" id="guest-email" placeholder="例: guest@example.com" list="email-suggestions">
+            <datalist id="email-suggestions"></datalist>
             
             <div id="share-status-msg" style="margin-top:10px; font-size:14px; font-weight:bold; text-align:center;"></div>
             
