@@ -493,6 +493,7 @@ async function publishRecord() {
 }
 
 // --- SNSシェア機能 (エラー対策版：2ステップ方式) ---
+// --- SNSシェア機能 (エラー対策＆Instagram対応クリップボードコピー版) ---
 window.pendingShareData = null;
 
 async function shareToSNS() {
@@ -504,9 +505,17 @@ async function shareToSNS() {
     const snsBtn = document.getElementById('sns-btn');
     const status = document.getElementById('status-msg');
     
-    // 【ステップ2】データ準備が完了している場合：即座にシェア画面を開く（時間切れエラーを完全回避！）
+    // 【ステップ2】データ準備が完了している場合：クリップボードにコピーしてからシェア画面を開く
     if (window.pendingShareData) {
         try {
+            // ▼▼ 今回追加：クリップボードへの自動コピー処理 ▼▼
+            if (window.pendingShareData.text && navigator.clipboard) {
+                await navigator.clipboard.writeText(window.pendingShareData.text);
+                // ユーザーにペースト操作を促すアラートを表示
+                alert("【お知らせ】\nInstagram等の仕様により文章が自動入力されないため、テキストをコピーしました。\n投稿画面のキャプション（説明）入力欄で「貼り付け」を行ってください。");
+            }
+            // ▲▲ ここまで ▲▲
+
             await navigator.share(window.pendingShareData);
             status.innerText = "SNS画面を起動しました！";
             status.style.color = "green";
@@ -547,14 +556,14 @@ async function shareToSNS() {
                     while(n--) { u8arr[n] = bstr.charCodeAt(n); }
                     filesToShare.push(new File([u8arr], item.name || `share_${i}.jpg`, {type:mime}));
                 } else if (item.id) {
-                    // ドライブ上の画像（このダウンロード時間がエラーの原因でした）
+                    // ドライブ上の画像
                     const res = await fetch(`https://www.googleapis.com/drive/v3/files/${item.id}?alt=media`, {
                         headers: { 'Authorization': `Bearer ${accessToken}` }
                     });
                     if (!res.ok) throw new Error("ファイルのダウンロードに失敗しました");
                     const blob = await res.blob();
                     
-                    // 拡張子の補完（拡張子がないとSNS側で無視される場合があるため）
+                    // 拡張子の補完
                     let fileName = item.name || `share_${i}.jpg`;
                     if (!fileName.includes('.')) {
                         fileName += (item.type.startsWith('video') ? '.mp4' : '.jpg');
