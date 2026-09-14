@@ -10,7 +10,6 @@
     <link rel="apple-touch-icon" href="icon-512.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
 
-    <!-- Google Identity Services -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <link rel="stylesheet" href="css/style.css">
 </head>
@@ -29,7 +28,6 @@
                 <button class="tab-btn" onclick="switchTab('view')">履歴一覧</button>
             </div>
 
-            <!-- 記録 / 編集タブ -->
             <div id="tab-create" class="tab-content active">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                     <h3 id="form-mode-title" style="margin:0 0 10px 0; font-size:16px; color:#4285f4;">新規作成モード</h3>
@@ -39,7 +37,6 @@
                 <label>分類</label>
                 <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
                     <select id="input-category" style="margin-top: 0; margin-bottom: 0; flex: 1;" onchange="onCategoryChange()">
-                        <!-- JSで動的生成 -->
                     </select>
                     <button type="button" class="btn btn-secondary" style="width: auto; margin: 0; padding: 10px;" onclick="openCategoryModal()">⚙️ 追加・編集</button>
                 </div>
@@ -63,9 +60,7 @@
                 <input type="text" id="input-location" placeholder="場所名や施設名を入力すると候補が出ます">
 
                 <label>カレンダーの色</label>
-                <div class="color-palette" id="color-palette">
-                    <!-- JSで動的生成 -->
-                </div>
+                <div class="color-palette" id="color-palette"></div>
 
                 <label style="margin-top: 16px;">記録内容</label>
                 <div class="editor-toolbar">
@@ -80,10 +75,11 @@
                 </div>
                 <textarea id="input-text" placeholder="今日の出来事を記録..."></textarea>
                 
-                <label>写真 (複数選択可)</label>
-                <input type="file" id="photo-upload" multiple accept="image/*" style="display: none;" onchange="processPhotos(event)">
-                <button class="btn" style="background:#34a853; margin-top:4px;" onclick="document.getElementById('photo-upload').click()">写真を選ぶ (複数選択可)</button>
-                <div id="selected-photos-preview" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;"></div>
+                <!-- ▼ 写真だけでなく、動画やドキュメントも選択できるように修正 ▼ -->
+                <label>添付ファイル (写真・動画・文書など 複数可)</label>
+                <input type="file" id="file-upload" multiple accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" style="display: none;" onchange="processFiles(event)">
+                <button class="btn" style="background:#34a853; margin-top:4px;" onclick="document.getElementById('file-upload').click()">ファイルを選ぶ</button>
+                <div id="selected-files-preview" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;"></div>
                 
                 <div id="status-msg"></div>
                 
@@ -113,9 +109,7 @@
             <h4 style="margin:0 0 8px 0;">新しい分類を追加</h4>
             <input type="text" id="new-cat-name" placeholder="分類名を入力">
             <label style="margin-top: 12px;">紐づける色</label>
-            <div class="color-palette" id="modal-color-palette">
-                <!-- JSで動的生成 -->
-            </div>
+            <div class="color-palette" id="modal-color-palette"></div>
             
             <div id="modal-status-msg" style="margin-top:10px; font-size:14px; font-weight:bold; text-align:center;"></div>
             
