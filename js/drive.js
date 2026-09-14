@@ -26,20 +26,24 @@ async function getOrCreateFolder(folderName, parentId = null) {
 // データベース(records.json)の読み書き
 async function getDatabase(htmlFolderId) {
     const q = `name='records.json' and '${htmlFolderId}' in parents and trashed=false`;
-    const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)`, {
+    
+    // 変更点1: 重複対策。同じ名前があれば必ず「一番新しいもの」を優先して取得する設定を追加
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&orderBy=createdTime desc&fields=files(id)`, {
         headers: { 'Authorization': `Bearer ${accessToken}` }
     });
     const data = await res.json();
     
     if (data.files && data.files.length > 0) {
         const fileId = data.files[0].id;
-        const fileRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+        
+        // 変更点2: キャッシュ対策。URLの末尾に現在の時刻(&t=...)をつけて、ブラウザに毎回最新を読み込ませる
+        const fileRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&t=${Date.now()}`, {
             headers: { 'Authorization': `Bearer ${accessToken}` }
         });
-        const records = await fileRes.json();
-        return { fileId, records };
+        const dbData = await fileRes.json();
+        return { fileId, dbData };
     } else {
-        return { fileId: null, records: [] };
+        return { fileId: null, dbData: null };
     }
 }
 
