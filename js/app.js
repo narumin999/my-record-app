@@ -337,6 +337,13 @@ async function saveRecord() {
     } catch (error) { console.error(error); status.innerText = "エラーが発生しました。"; status.style.color = "red"; }
 }
 
+// --- ▼ ここから下の関数をすべて上書き ▼ ---
+
+// グローバル変数として全記録とページネーション状態を保持
+let allAppRecords = [];
+let currentPage = 1;
+const itemsPerPage = 10; // 1ページあたりの表示件数
+
 async function loadRecordsList() {
     try {
         const rootFolderId = await getOrCreateFolder('MyRecordApp');
@@ -348,23 +355,94 @@ async function loadRecordsList() {
             records = dbData.records || [];
             if (dbData.categories && dbData.categories.length > 0) globalCategories = dbData.categories;
         }
-        renderCategorySelect();
         
-        const listDiv = document.getElementById('record-list'); listDiv.innerHTML = '';
-        if(!records || records.length === 0) { listDiv.innerHTML = '<p style="color:#666;">記録がまだありません。</p>'; return; }
-        records.forEach(record => {
-            const item = document.createElement('div'); item.className = 'record-item';
+        renderCategorySelect();
+
+        // ▼ 記録を日時(start)の降順にソートする（終日は0時0分扱い）
+        allAppRecords = records.sort((a, b) => {
+            const timeA = a.isAllDay ? a.start + "T00:00:00" : a.start;
+            const timeB = b.isAllDay ? b.start + "T00:00:00" : b.start;
+            return timeB.localeCompare(timeA); // 降順
+        });
+
+        updateFilterOptions();
+        applyFilters(); // フィルター適用と描画
+        
+    } catch (error) { console.error(error); }
+}
+
+// フィルター選択肢（カテゴリ・月）を動的に生成
+function updateFilterOptions() {
+    const catSelect = document.getElementById('filter-category');
+    catSelect.innerHTML = '<option value="">全分類</option>';
+    globalCategories.forEach(c => { catSelect.innerHTML += `<option value="${c.name}">${c.name}</option>`; });
+
+    const monthSelect = document.getElementById('filter-month');
+    const months = new Set();
+    allAppRecords.forEach(r => {
+        if (r.displayDate) months.add(r.displayDate.substring(0, 7)); // YYYY-MM形式を抽出
+    });
+    monthSelect.innerHTML = '<option value="">全期間</option>';
+    Array.from(months).sort().reverse().forEach(m => { // 月も新しい順
+        monthSelect.innerHTML += `<option value="${m}">${m.replace('-', '年')}月</option>`;
+    });
+}
+
+// フィルター条件が変わった時に呼ばれる
+function applyFilters() {
+    currentPage = 1; // 1ページ目に戻す
+    renderRecordList();
+}
+
+// ページ遷移時に呼ばれる
+function changePage(delta) {
+    currentPage += delta;
+    renderRecordList();
+}
+
+// フィルターとページネーションを適用して画面に表示する
+function renderRecordList() {
+    const catFilter = document.getElementById('filter-category').value;
+    const monthFilter = document.getElementById('filter-month').value;
+    
+    // 絞り込み実行
+    const filtered = allAppRecords.filter(r => {
+        const matchCat = !catFilter || r.category === catFilter;
+        const matchMonth = !monthFilter || (r.displayDate && r.displayDate.startsWith(monthFilter));
+        return matchCat && matchMonth;
+    });
+
+    const totalPages = Math.ceil(filtered.length / itemsPerPage) || 1;
+    if (currentPage > totalPages) currentPage = totalPages;
+
+    const startIdx = (currentPage - 1) * itemsPerPage;
+    const pageData = filtered.slice(startIdx, startIdx + itemsPerPage);
+
+    const listDiv = document.getElementById('record-list');
+    listDiv.innerHTML = '';
+    
+    if (filtered.length === 0) {
+        listDiv.innerHTML = '<p style="color:#666;">該当する記録がありません。</p>';
+    } else {
+        pageData.forEach(record => {
+            const item = document.createElement('div');
+            item.className = 'record-item';
             const displayCategory = record.category || '記録';
             item.innerHTML = `<div><strong>[${displayCategory}] ${record.title}</strong><div style="font-size: 12px; color: #666; margin-top: 2px;">${record.displayDate}</div></div><span style="font-size:12px; color:blue;">[編集]</span>`;
             item.onclick = () => loadRecordIntoForm(record);
             listDiv.appendChild(item);
         });
-    } catch (error) { console.error(error); }
+    }
+
+    // ページ番号とボタン状態の更新
+    document.getElementById('page-indicator').innerText = `${currentPage} / ${totalPages}`;
+    document.getElementById('prev-page-btn').disabled = currentPage === 1;
+    document.getElementById('next-page-btn').disabled = currentPage === totalPages;
 }
 
 function loadRecordIntoForm(record) {
     editingRecordId = record.id;
-    currentEditingRecordObj = record; // ★公開用にオブジェクトを記憶
+    currentEditingRecordObj = record; 
 
     document.getElementById('input-category').value = record.category || '記録';
     onCategoryChange();
@@ -390,12 +468,11 @@ function loadRecordIntoForm(record) {
 
     document.getElementById('save-btn-text').innerText = "変更を保存する";
     document.getElementById('delete-btn').style.display = 'block';
-    document.getElementById('share-btn').style.display = 'block'; // ★公開ボタンを表示
-    // ▼▼ ここから3行追加 ▼▼
+    document.getElementById('share-btn').style.display = 'block'; 
     window.pendingShareData = null;
     const snsBtn = document.getElementById('sns-btn');
     if(snsBtn) { snsBtn.innerText = "📱 SNSシェア"; snsBtn.style.backgroundColor = "#E1306C"; snsBtn.style.display = 'block'; }
-    // ▲▲ ここまで ▲▲
+
     switchTab('create');
 }
 
@@ -425,26 +502,32 @@ async function deleteCurrentRecord() {
 
 function resetForm() {
     editingRecordId = null;
-    currentEditingRecordObj = null; // ★リセット
+    currentEditingRecordObj = null; 
     document.getElementById('input-category').value = '記録'; onCategoryChange();
     document.getElementById('input-title').value = ''; document.getElementById('input-text').value = ''; document.getElementById('input-location').value = '';
     selectedFilesData = []; renderFilePreview();
     initDateFields(); document.getElementById('is-allday').checked = true; toggleDateTime();
     document.getElementById('save-btn-text').innerText = "保存 (Drive連携 & カレンダー登録)";
     document.getElementById('delete-btn').style.display = 'none';
-    document.getElementById('share-btn').style.display = 'none'; // ★公開ボタンを非表示
-    // ▼▼ ここから3行追加 ▼▼
+    document.getElementById('share-btn').style.display = 'none';
     window.pendingShareData = null;
     const snsBtn = document.getElementById('sns-btn');
     if(snsBtn) { snsBtn.innerText = "📱 SNSシェア"; snsBtn.style.backgroundColor = "#E1306C"; snsBtn.style.display = 'none'; }
-    // ▲▲ ここまで ▲▲
 }
 
-// ▼ ゲストへの公開（カレンダー招待と権限付与）ロジック
+// ▼ ゲストへの公開ロジック（サジェスト機能追加）
 function openShareModal() { 
     document.getElementById('share-modal').style.display = 'flex'; 
     document.getElementById('guest-email').value = ''; 
     document.getElementById('share-status-msg').innerText = ''; 
+    
+    // サジェスト用のメールアドレスを読み込んでセット
+    const savedEmails = JSON.parse(localStorage.getItem('my_record_app_guest_emails') || '[]');
+    const datalist = document.getElementById('email-suggestions');
+    datalist.innerHTML = '';
+    savedEmails.forEach(email => {
+        datalist.innerHTML += `<option value="${email}">`;
+    });
 }
 function closeShareModal() { document.getElementById('share-modal').style.display = 'none'; }
 
@@ -453,7 +536,6 @@ async function publishRecord() {
     if (!emailStr) return alert("メールアドレスを入力してください");
     if (!currentEditingRecordObj || !currentEditingRecordObj.calendarEventId) return alert("カレンダー予定が見つかりません。先に保存してください。");
 
-    // カンマ区切りで複数のメールアドレスを抽出
     const emails = emailStr.split(',').map(e => e.trim()).filter(e => e);
     if (emails.length === 0) return alert("有効なメールアドレスがありません");
 
@@ -462,25 +544,23 @@ async function publishRecord() {
     status.style.color = "#333";
 
     try {
-        // 1. カレンダーへゲスト追加と招待状の送信
         await addGuestToCalendarEvent(currentEditingRecordObj.calendarEventId, emails);
 
-        // 2. 指定したユーザーにHTMLと全添付ファイルの閲覧権限を付与
         for (let email of emails) {
-            if (currentEditingRecordObj.htmlFileId) {
-                await shareFileWithEmail(currentEditingRecordObj.htmlFileId, email);
-            }
+            if (currentEditingRecordObj.htmlFileId) await shareFileWithEmail(currentEditingRecordObj.htmlFileId, email);
             let filesList = currentEditingRecordObj.files || [];
-            if (filesList.length === 0 && currentEditingRecordObj.photos) {
-                // 古いデータ形式の互換性
-                filesList = currentEditingRecordObj.photos.map(id => ({ id: id }));
-            }
-            if (filesList.length > 0) {
-                for (let f of filesList) {
-                    await shareFileWithEmail(f.id, email);
-                }
+            if (filesList.length === 0 && currentEditingRecordObj.photos) filesList = currentEditingRecordObj.photos.map(id => ({ id: id }));
+            for (let f of filesList) {
+                await shareFileWithEmail(f.id, email);
             }
         }
+        
+        // ▼ 成功したら、メールアドレスを記憶して次回サジェストに出す
+        const savedEmails = JSON.parse(localStorage.getItem('my_record_app_guest_emails') || '[]');
+        emails.forEach(e => {
+            if (!savedEmails.includes(e)) savedEmails.push(e);
+        });
+        localStorage.setItem('my_record_app_guest_emails', JSON.stringify(savedEmails));
 
         status.innerText = "公開が完了し、招待状を送信しました！";
         status.style.color = "green";
@@ -492,109 +572,52 @@ async function publishRecord() {
     }
 }
 
-// --- SNSシェア機能 (エラー対策版：2ステップ方式) ---
-// --- SNSシェア機能 (エラー対策＆Instagram対応クリップボードコピー版) ---
 window.pendingShareData = null;
-
 async function shareToSNS() {
-    if (!navigator.share) {
-        alert("お使いのブラウザはシェア機能に対応していません。スマートフォンの標準ブラウザでお試しください。");
-        return;
-    }
-
+    if (!navigator.share) return alert("お使いのブラウザはシェア機能に対応していません。");
     const snsBtn = document.getElementById('sns-btn');
     const status = document.getElementById('status-msg');
     
-    // 【ステップ2】データ準備が完了している場合：クリップボードにコピーしてからシェア画面を開く
     if (window.pendingShareData) {
         try {
-            // ▼▼ 今回追加：クリップボードへの自動コピー処理 ▼▼
             if (window.pendingShareData.text && navigator.clipboard) {
                 await navigator.clipboard.writeText(window.pendingShareData.text);
-                // ユーザーにペースト操作を促すアラートを表示
                 alert("【お知らせ】\nInstagram等の仕様により文章が自動入力されないため、テキストをコピーしました。\n投稿画面のキャプション（説明）入力欄で「貼り付け」を行ってください。");
             }
-            // ▲▲ ここまで ▲▲
-
             await navigator.share(window.pendingShareData);
-            status.innerText = "SNS画面を起動しました！";
-            status.style.color = "green";
-            setTimeout(() => { status.innerText = ""; }, 3000);
-        } catch (err) {
-            if (err.name !== 'AbortError') {
-                alert("シェアに失敗しました: " + err.message);
-            }
-        }
-        // シェアが終わったらボタンを元のピンク色に戻す
-        snsBtn.innerText = "📱 SNSシェア";
-        snsBtn.style.backgroundColor = "#E1306C";
-        window.pendingShareData = null;
+            status.innerText = "SNS画面を起動しました！"; status.style.color = "green"; setTimeout(() => { status.innerText = ""; }, 3000);
+        } catch (err) { if (err.name !== 'AbortError') alert("シェアに失敗しました: " + err.message); }
+        snsBtn.innerText = "📱 SNSシェア"; snsBtn.style.backgroundColor = "#E1306C"; window.pendingShareData = null;
         return;
     }
-
-    // 【ステップ1】初めて押された場合：Googleドライブから画像をダウンロードして準備
-    status.innerText = "画像・動画をダウンロード中... (少々お待ちください)";
-    status.style.color = "#333";
-    snsBtn.disabled = true;
-    
+    status.innerText = "画像・動画をダウンロード中... (少々お待ちください)"; status.style.color = "#333"; snsBtn.disabled = true;
     const title = document.getElementById('input-title').value;
     const category = document.getElementById('input-category').value || '記録';
     const rawText = document.getElementById('input-text').value;
     const text = stripHtmlTags(rawText);
-    
     const filesToShare = [];
-    
     try {
-        // 画像・動画の準備
         for (let i = 0; i < selectedFilesData.length; i++) {
             const item = selectedFilesData[i];
             if (item.type && (item.type.startsWith('image/') || item.type.startsWith('video/'))) {
                 if (item.url.startsWith('data:')) {
-                    // 新規追加中の画像
                     let arr = item.url.split(','), mime = arr[0].match(/:(.*?);/)[1];
                     let bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
                     while(n--) { u8arr[n] = bstr.charCodeAt(n); }
                     filesToShare.push(new File([u8arr], item.name || `share_${i}.jpg`, {type:mime}));
                 } else if (item.id) {
-                    // ドライブ上の画像
-                    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${item.id}?alt=media`, {
-                        headers: { 'Authorization': `Bearer ${accessToken}` }
-                    });
+                    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${item.id}?alt=media`, { headers: { 'Authorization': `Bearer ${accessToken}` } });
                     if (!res.ok) throw new Error("ファイルのダウンロードに失敗しました");
                     const blob = await res.blob();
-                    
-                    // 拡張子の補完
                     let fileName = item.name || `share_${i}.jpg`;
-                    if (!fileName.includes('.')) {
-                        fileName += (item.type.startsWith('video') ? '.mp4' : '.jpg');
-                    }
+                    if (!fileName.includes('.')) fileName += (item.type.startsWith('video') ? '.mp4' : '.jpg');
                     filesToShare.push(new File([blob], fileName, {type: item.type}));
                 }
             }
         }
-
-        window.pendingShareData = {
-            title: title,
-            text: `【${title}】\n\n${text}\n\n#${category}`
-        };
-
-        // ファイルがあれば付与
-        if (filesToShare.length > 0 && navigator.canShare && navigator.canShare({ files: filesToShare })) {
-            window.pendingShareData.files = filesToShare;
-        }
-
-        // ダウンロードが完了したらボタンを「緑色」にして投稿可能にする
-        status.innerText = "準備完了！もう一度ボタンを押してシェアしてください。";
-        status.style.color = "blue";
-        
-        snsBtn.innerText = "🚀 準備完了 (タップしてSNSへ)";
-        snsBtn.style.backgroundColor = "#34a853";
-        snsBtn.disabled = false;
-        
-    } catch (err) {
-        console.error(err);
-        status.innerText = "";
-        snsBtn.disabled = false;
-        alert("ファイルの準備中にエラーが発生しました。\n" + err.message);
-    }
+        window.pendingShareData = { title: title, text: `【${title}】\n\n${text}\n\n#${category}` };
+        if (filesToShare.length > 0 && navigator.canShare && navigator.canShare({ files: filesToShare })) window.pendingShareData.files = filesToShare;
+        status.innerText = "準備完了！もう一度ボタンを押してシェアしてください。"; status.style.color = "blue";
+        snsBtn.innerText = "🚀 準備完了 (タップしてSNSへ)"; snsBtn.style.backgroundColor = "#34a853"; snsBtn.disabled = false;
+    } catch (err) { console.error(err); status.innerText = ""; snsBtn.disabled = false; alert("ファイルの準備中にエラーが発生しました。\n" + err.message); }
 }
