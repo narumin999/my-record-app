@@ -85,12 +85,14 @@
                     <span id="save-btn-text">保存 (Drive連携 & カレンダー登録)</span>
                 </button>
                 
+                <!-- ▼ 3つのボタンが横並びになるように修正 ▼ -->
                 <div style="display:flex; gap:10px; margin-top: 10px;">
-                    <button id="share-btn" class="btn" style="display: none; flex: 1; background-color: #f4b400; color: white;" onclick="openShareModal()">🌐 ゲストに公開</button>
-                    <button id="delete-btn" class="btn btn-danger" style="display: none; flex: 1;" onclick="deleteCurrentRecord()">🗑️ この記録を削除</button>
+                    <button id="sns-btn" class="btn" style="display: none; flex: 1; background-color: #E1306C; color: white;" onclick="shareToSNS()">📱 SNSシェア</button>
+                    <button id="share-btn" class="btn" style="display: none; flex: 1; background-color: #f4b400; color: white;" onclick="openShareModal()">🌐 ゲスト公開</button>
+                    <button id="delete-btn" class="btn btn-danger" style="display: none; flex: 1;" onclick="deleteCurrentRecord()">🗑️ 削除</button>
                 </div>
             </div>
-
+            
             <div id="tab-view" class="tab-content">
                 <button class="btn" onclick="loadRecordsList()">再読み込み</button>
                 <div id="record-list" style="margin-top: 16px;"></div>
