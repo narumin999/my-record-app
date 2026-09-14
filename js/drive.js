@@ -107,3 +107,13 @@ async function saveHtmlFile(htmlFolderId, existingFileId, title, displayDate, lo
 async function deleteDriveFile(fileId) {
     await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${accessToken}` } });
 }
+
+// ▼ 指定したメールアドレスのユーザーに閲覧権限を付与する
+async function shareFileWithEmail(fileId, email) {
+    // sendNotificationEmail=false により、Driveからの無駄な通知スパムを防ぎ、カレンダーの招待状だけに絞ります
+    await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions?sendNotificationEmail=false`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: 'reader', type: 'user', emailAddress: email })
+    });
+}
