@@ -391,7 +391,11 @@ function loadRecordIntoForm(record) {
     document.getElementById('save-btn-text').innerText = "変更を保存する";
     document.getElementById('delete-btn').style.display = 'block';
     document.getElementById('share-btn').style.display = 'block'; // ★公開ボタンを表示
-    document.getElementById('sns-btn').style.display = 'block'; // ★この1行を追加
+    // ▼▼ ここから3行追加 ▼▼
+    window.pendingShareData = null;
+    const snsBtn = document.getElementById('sns-btn');
+    if(snsBtn) { snsBtn.innerText = "📱 SNSシェア"; snsBtn.style.backgroundColor = "#E1306C"; snsBtn.style.display = 'block'; }
+    // ▲▲ ここまで ▲▲
     switchTab('create');
 }
 
@@ -429,7 +433,11 @@ function resetForm() {
     document.getElementById('save-btn-text').innerText = "保存 (Drive連携 & カレンダー登録)";
     document.getElementById('delete-btn').style.display = 'none';
     document.getElementById('share-btn').style.display = 'none'; // ★公開ボタンを非表示
-    document.getElementById('sns-btn').style.display = 'none'; // ★この1行を追加
+    // ▼▼ ここから3行追加 ▼▼
+    window.pendingShareData = null;
+    const snsBtn = document.getElementById('sns-btn');
+    if(snsBtn) { snsBtn.innerText = "📱 SNSシェア"; snsBtn.style.backgroundColor = "#E1306C"; snsBtn.style.display = 'none'; }
+    // ▲▲ ここまで ▲▲
 }
 
 // ▼ ゲストへの公開（カレンダー招待と権限付与）ロジック
@@ -484,16 +492,41 @@ async function publishRecord() {
     }
 }
 
-// --- SNSシェア機能 ---
+// --- SNSシェア機能 (エラー対策版：2ステップ方式) ---
+window.pendingShareData = null;
+
 async function shareToSNS() {
     if (!navigator.share) {
         alert("お使いのブラウザはシェア機能に対応していません。スマートフォンの標準ブラウザでお試しください。");
         return;
     }
 
+    const snsBtn = document.getElementById('sns-btn');
     const status = document.getElementById('status-msg');
-    status.innerText = "SNS起動の準備中...";
+    
+    // 【ステップ2】データ準備が完了している場合：即座にシェア画面を開く（時間切れエラーを完全回避！）
+    if (window.pendingShareData) {
+        try {
+            await navigator.share(window.pendingShareData);
+            status.innerText = "SNS画面を起動しました！";
+            status.style.color = "green";
+            setTimeout(() => { status.innerText = ""; }, 3000);
+        } catch (err) {
+            if (err.name !== 'AbortError') {
+                alert("シェアに失敗しました: " + err.message);
+            }
+        }
+        // シェアが終わったらボタンを元のピンク色に戻す
+        snsBtn.innerText = "📱 SNSシェア";
+        snsBtn.style.backgroundColor = "#E1306C";
+        window.pendingShareData = null;
+        return;
+    }
+
+    // 【ステップ1】初めて押された場合：Googleドライブから画像をダウンロードして準備
+    status.innerText = "画像・動画をダウンロード中... (少々お待ちください)";
     status.style.color = "#333";
+    snsBtn.disabled = true;
     
     const title = document.getElementById('input-title').value;
     const category = document.getElementById('input-category').value || '記録';
@@ -503,47 +536,56 @@ async function shareToSNS() {
     const filesToShare = [];
     
     try {
-        // 添付ファイルから画像・動画だけを抽出してシェア用の形式に変換
+        // 画像・動画の準備
         for (let i = 0; i < selectedFilesData.length; i++) {
             const item = selectedFilesData[i];
             if (item.type && (item.type.startsWith('image/') || item.type.startsWith('video/'))) {
                 if (item.url.startsWith('data:')) {
-                    // 新規追加中のファイル
+                    // 新規追加中の画像
                     let arr = item.url.split(','), mime = arr[0].match(/:(.*?);/)[1];
                     let bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
                     while(n--) { u8arr[n] = bstr.charCodeAt(n); }
                     filesToShare.push(new File([u8arr], item.name || `share_${i}.jpg`, {type:mime}));
                 } else if (item.id) {
-                    // ドライブに保存済みの既存ファイルを再取得
+                    // ドライブ上の画像（このダウンロード時間がエラーの原因でした）
                     const res = await fetch(`https://www.googleapis.com/drive/v3/files/${item.id}?alt=media`, {
                         headers: { 'Authorization': `Bearer ${accessToken}` }
                     });
+                    if (!res.ok) throw new Error("ファイルのダウンロードに失敗しました");
                     const blob = await res.blob();
-                    filesToShare.push(new File([blob], item.name || `share_${i}.jpg`, {type: item.type}));
+                    
+                    // 拡張子の補完（拡張子がないとSNS側で無視される場合があるため）
+                    let fileName = item.name || `share_${i}.jpg`;
+                    if (!fileName.includes('.')) {
+                        fileName += (item.type.startsWith('video') ? '.mp4' : '.jpg');
+                    }
+                    filesToShare.push(new File([blob], fileName, {type: item.type}));
                 }
             }
         }
 
-        const shareData = {
+        window.pendingShareData = {
             title: title,
             text: `【${title}】\n\n${text}\n\n#${category}`
         };
 
-        // 画像が含まれている場合はファイルをセット
+        // ファイルがあれば付与
         if (filesToShare.length > 0 && navigator.canShare && navigator.canShare({ files: filesToShare })) {
-            shareData.files = filesToShare;
+            window.pendingShareData.files = filesToShare;
         }
 
-        status.innerText = "";
+        // ダウンロードが完了したらボタンを「緑色」にして投稿可能にする
+        status.innerText = "準備完了！もう一度ボタンを押してシェアしてください。";
+        status.style.color = "blue";
         
-        // スマホのシェア画面を呼び出し
-        await navigator.share(shareData);
+        snsBtn.innerText = "🚀 準備完了 (タップしてSNSへ)";
+        snsBtn.style.backgroundColor = "#34a853";
+        snsBtn.disabled = false;
         
     } catch (err) {
+        console.error(err);
         status.innerText = "";
-        if (err.name !== 'AbortError') { // ユーザーがシェア画面を閉じただけの場合はエラー表示しない
-            console.error(err);
-            alert("シェア中にエラーが発生しました。");
-        }
+        snsBtn.disabled = false;
+        alert("ファイルの準備中にエラーが発生しました。\n" + err.message);
     }
 }
