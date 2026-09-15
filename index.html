@@ -74,10 +74,22 @@
                 </div>
                 <textarea id="input-text" placeholder="今日の出来事を記録..."></textarea>
                 
-                <label>添付ファイル (写真・動画・文書など 複数可)</label>
-                <input type="file" id="file-upload" multiple accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" style="display: none;" onchange="processFiles(event)">
-                <button class="btn" style="background:#34a853; margin-top:4px;" onclick="document.getElementById('file-upload').click()">ファイルを選ぶ</button>
-                <div id="selected-files-preview" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;"></div>
+                <label style="margin-top: 12px;">添付ファイル (複数選択可)</label>
+                
+                <!-- 写真専用 (accept="image/*" によりGoogleフォトやギャラリーが直接開きます) -->
+                <input type="file" id="photo-upload" multiple accept="image/*" style="display: none;" onchange="processFiles(event)">
+                <!-- 動画用 -->
+                <input type="file" id="video-upload" multiple accept="video/*" style="display: none;" onchange="processFiles(event)">
+                <!-- 書類・PDF用 -->
+                <input type="file" id="doc-upload" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" style="display: none;" onchange="processFiles(event)">
+                
+                <div style="display: flex; gap: 6px; margin-top: 4px;">
+                    <button type="button" class="btn" style="background:#34a853; margin:0; flex:1; padding:10px 4px; font-size:13px;" onclick="document.getElementById('photo-upload').click()">📷 写真</button>
+                    <button type="button" class="btn" style="background:#4285f4; margin:0; flex:1; padding:10px 4px; font-size:13px;" onclick="document.getElementById('video-upload').click()">🎬 動画</button>
+                    <button type="button" class="btn" style="background:#fbbc04; color:#333; margin:0; flex:1; padding:10px 4px; font-size:13px;" onclick="document.getElementById('doc-upload').click()">📎 書類</button>
+                </div>
+                
+                <div id="selected-files-preview" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;"></div>                
                 
                 <div id="status-msg"></div>
                 
